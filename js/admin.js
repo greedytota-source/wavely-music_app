@@ -356,7 +356,16 @@ function initArtistManager() {
 
         if (error) throw error;
         if (!data || !data.length) {
-          throw new Error('Update block hua — artists par UPDATE policy chahiye (neeche diya SQL run karo)');
+          // 0 rows can also mean "already applied" when the handler fires twice.
+          const { data: current } = await window.supabaseClient
+            .from('artists')
+            .select('name')
+            .eq('id', editingArtistId)
+            .limit(1);
+          const applied = current && current.length && current[0].name === name;
+          if (!applied) {
+            throw new Error('Update block hua — artists par UPDATE policy chahiye (neeche diya SQL run karo)');
+          }
         }
         showArtistStatus('Artist update ho gaya', 'success');
       } else {
@@ -430,7 +439,15 @@ function initArtistManager() {
 
       if (error) throw error;
       if (!data || !data.length) {
-        throw new Error('Delete block hua — artists par DELETE policy chahiye (neeche diya SQL run karo)');
+        // If the row is already gone, the delete worked (double submit) — not an RLS block.
+        const { data: still } = await window.supabaseClient
+          .from('artists')
+          .select('id')
+          .eq('id', artistId)
+          .limit(1);
+        if (still && still.length) {
+          throw new Error('Delete block hua — artists par DELETE policy chahiye (neeche diya SQL run karo)');
+        }
       }
 
       if (editingArtistId === artistId) resetArtistForm();
