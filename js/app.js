@@ -204,11 +204,11 @@
 
   function getItem(id) {
     if (id === "liked") {
-      const base = ITEM_BY_ID.liked;
-      const tracks = TRACKS.filter((t) => state.liked.has(t.id));
+      const base = (window.ITEM_BY_ID||{}).liked;
+      const tracks = (window.TRACKS||[]).filter((t) => state.liked.has(t.id));
       return { ...base, tracks, trackIds: tracks.map((t) => t.id) };
     }
-    return ITEM_BY_ID[id] || null;
+    return (window.ITEM_BY_ID||{})[id] || null;
   }
 
   /* ── Audio engine ──────────────────────────────────────────── */
@@ -435,24 +435,24 @@
   function libraryItems(filter = state.libFilter) {
     if (filter === "artists") return ARTISTS;
     if (filter === "albums") return ALBUMS;
-    return [getItem("liked"), ...PLAYLISTS.filter((x) => x.id !== "liked")];
+    return [getItem("liked"), ...(window.PLAYLISTS||{}).filter((x) => x.id !== "liked")];
   }
 
   /* ── Search ────────────────────────────────────────────────── */
   function runSearch(q) {
     const needle = q.toLowerCase();
-    const tracks = TRACKS.filter((t) =>
+    const tracks = (window.TRACKS||[]).filter((t) =>
       `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(needle)
     );
-    const playlists = ALL_ITEMS.filter((i) =>
+    const playlists = (window.ALL_ITEMS||{}).filter((i) =>
       `${i.title} ${i.description || ""} ${i.owner || ""} ${i.artist || ""}`.toLowerCase().includes(needle)
     );
-    const artists = ARTISTS.filter((a) => a.name.toLowerCase().includes(needle));
+    const artists = (window.ARTISTS||{}).filter((a) => a.name.toLowerCase().includes(needle));
     const genres = GENRES.filter((g) => g.name.toLowerCase().includes(needle));
 
     genres.forEach((g) => {
-      (GENRE_TRACKS[g.name] || []).forEach((id) => {
-        const t = TRACK_BY_ID[id];
+      ((window.GENRE_TRACKS || {})[g.name] || []).forEach((id) => {
+        const t = (window.TRACK_BY_ID||{})[id];
         if (t && !tracks.includes(t)) tracks.push(t);
       });
     });
@@ -529,7 +529,7 @@
   }
 
   function itemIdForAlbum(albumName) {
-    const album = ALBUMS.find((a) => a.title === albumName);
+    const album = (window.ALBUMS||{}).find((a) => a.title === albumName);
     return album ? album.id : null;
   }
 
@@ -614,12 +614,12 @@
   }
 
   function viewArtist(name) {
-    const artist = ARTIST_BY_NAME[name];
+    const artist = (window.ARTIST_BY_NAME||{})[name];
     if (!artist) return viewNotFound();
 
     const info = artistInfo(name);
-    const tracks = TRACKS.filter((t) => t.artist === name);
-    const albums = ALBUMS.filter((a) => a.artist === name);
+    const tracks = (window.TRACKS||[]).filter((t) => t.artist === name);
+    const albums = (window.ALBUMS||{}).filter((a) => a.artist === name);
     const following = state.following.has(name);
 
     const popular = tracks
@@ -780,7 +780,7 @@
     }
 
     const top = res.playlists[0] || res.artists[0] || res.tracks[0];
-    const topIsTrack = Boolean(TRACK_BY_ID[top.id]);
+    const topIsTrack = Boolean((window.TRACK_BY_ID||{})[top.id]);
     const topIsArtist = top.type === "Artist";
 
     let topHTML = "";
@@ -1205,7 +1205,7 @@
     } else if (path.startsWith("/artist/")) {
       const name = decodeURIComponent(path.slice("/artist/".length));
       view.innerHTML = viewArtist(name);
-      document.title = ARTIST_BY_NAME[name] ? `${name} — Wavely` : "Not found — Wavely";
+      document.title = (window.ARTIST_BY_NAME||{})[name] ? `${name} — Wavely` : "Not found — Wavely";
     } else if (path.startsWith("/genre/")) {
       const name = decodeURIComponent(path.slice("/genre/".length));
       view.innerHTML = viewGenre(name);
@@ -1257,7 +1257,7 @@
     }
     if (contextId.startsWith("artist:")) {
       const name = contextId.slice("artist:".length);
-      const tracks = TRACKS.filter((t) => t.artist === name);
+      const tracks = (window.TRACKS||[]).filter((t) => t.artist === name);
       setQueue(tracks, index, contextId);
       play();
       return;
@@ -1276,7 +1276,7 @@
   }
 
   function playSearchTrack(id) {
-    const tracks = state.searchTracks.length ? state.searchTracks : TRACKS.filter((t) => t.id === id);
+    const tracks = state.searchTracks.length ? state.searchTracks : (window.TRACKS||[]).filter((t) => t.id === id);
     const i = tracks.findIndex((t) => t.id === id);
     if (i < 0) return;
     setQueue(tracks, i, "search");
@@ -1284,7 +1284,7 @@
   }
 
   function playArtist(name) {
-    const tracks = TRACKS.filter((t) => t.artist === name);
+    const tracks = (window.TRACKS||[]).filter((t) => t.artist === name);
     if (!tracks.length) return;
     setQueue(tracks, 0, `artist:${name}`);
     play();
@@ -1614,9 +1614,32 @@
     }
   }
 
-  if (window.TRACKS && window.TRACKS.length > 0) {
+  if ((window.TRACKS && window.TRACKS.length > 0) || (typeof window.supabaseClient === 'undefined')) {
     start();
   } else {
     window.addEventListener("supabaseDataLoaded", start, { once: true });
   }
+
+  window.addEventListener("supabaseDataLoaded", () => {
+    try {
+      if (typeof renderLibrarySidebar === 'function') renderLibrarySidebar();
+      if (typeof syncFilterChips === 'function') syncFilterChips();
+      if (typeof render === 'function') render();
+      if (typeof renderNowPlaying === 'function') renderNowPlaying(true);
+      if (typeof renderQueue === 'function') renderQueue();
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && typeof window.reloadSupabaseData === 'function') {
+      window.reloadSupabaseData();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (typeof window.reloadSupabaseData === 'function') {
+      window.reloadSupabaseData();
+    }
+  });
 })();

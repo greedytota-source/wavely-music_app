@@ -269,7 +269,7 @@ const GENRES = [
   { name: "Gaming", c1: "#e13300", seed: "genre:gaming" }
 ];
 
-const GENRE_TRACKS = {
+window.GENRE_TRACKS = {
   Pop: ["t3", "t23", "t40", "t17", "t10", "t24"],
   Indie: ["t17", "t2", "t34", "t8", "t18", "t35"],
   "Hip-Hop": ["t20", "t36", "t21", "t37", "t6", "t13"],
@@ -283,6 +283,7 @@ const GENRE_TRACKS = {
   Commute: ["t6", "t13", "t31", "t4", "t11", "t19"],
   Gaming: ["t1", "t9", "t20", "t21", "t36", "t40"]
 };
+const GENRE_TRACKS = window.GENRE_TRACKS;
 
 const GENRE_BY_NAME = Object.fromEntries(GENRES.map((g) => [g.name, g]));
 

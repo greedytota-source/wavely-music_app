@@ -1,16 +1,21 @@
-let TRACKS = [];
-let PLAYLISTS = [];
-let ARTISTS = [];
-let ALBUMS = [];
-let ALL_ITEMS = [];
-let ITEM_BY_ID = {};
-let ARTIST_BY_NAME = {};
-let TRACK_BY_ID = {};
+window.TRACKS = window.TRACKS || [];
+window.PLAYLISTS = window.PLAYLISTS || [];
+window.ARTISTS = window.ARTISTS || [];
+window.ALBUMS = window.ALBUMS || [];
+window.ALL_ITEMS = window.ALL_ITEMS || [];
+window.ITEM_BY_ID = window.ITEM_BY_ID || {};
+window.ARTIST_BY_NAME = window.ARTIST_BY_NAME || {};
+window.TRACK_BY_ID = window.TRACK_BY_ID || {};
 
-const byIds = (ids) => (ids || []).map((id) => TRACK_BY_ID[id]).filter(Boolean);
+const byIds = (ids) => (ids || []).map((id) => (window.TRACK_BY_ID || {})[id]).filter(Boolean);
 
 async function loadSupabaseData() {
   try {
+    if (typeof window.supabaseClient === 'undefined') {
+      console.error('Supabase client not initialized');
+      window.dispatchEvent(new CustomEvent('supabaseDataLoaded'));
+      return;
+    }
     // Load tracks with artist and album info
     const { data: tracksData, error: tracksError } = await window.supabaseClient
       .from('tracks')
@@ -19,7 +24,7 @@ async function loadSupabaseData() {
 
     if (tracksError) throw tracksError;
 
-    TRACKS = (tracksData || []).map((t) => ({
+    window.TRACKS = (tracksData || []).map((t) => ({
       id: t.id,
       title: t.title,
       artist: t.artists?.name || 'Unknown Artist',
@@ -33,18 +38,18 @@ async function loadSupabaseData() {
       explicit: t.explicit || false
     }));
 
-    TRACK_BY_ID = Object.fromEntries(TRACKS.map((t) => [t.id, t]));
+    window.TRACK_BY_ID = Object.fromEntries(window.TRACKS.map((t) => [t.id, t]));
 
     // Load artists
     const { data: artistsData } = await window.supabaseClient.from('artists').select('*').order('name');
-    ARTISTS = (artistsData || []).map((a) => ({
+    window.ARTISTS = (artistsData || []).map((a) => ({
       id: a.id,
       type: 'Artist',
       name: a.name,
       image_url: a.image_url,
       seed: 'artist:' + a.name
     }));
-    ARTIST_BY_NAME = Object.fromEntries(ARTISTS.map((a) => [a.name, a]));
+    window.ARTIST_BY_NAME = Object.fromEntries(window.ARTISTS.map((a) => [a.name, a]));
 
     // Load albums
     const { data: albumsData } = await window.supabaseClient
@@ -52,7 +57,7 @@ async function loadSupabaseData() {
       .select('*, artists(name)')
       .order('title');
 
-    ALBUMS = (albumsData || []).map((a) => ({
+    window.ALBUMS = (albumsData || []).map((a) => ({
       id: a.id,
       type: 'Album',
       title: a.title,
@@ -72,7 +77,7 @@ async function loadSupabaseData() {
       .select('*, playlist_tracks(track_id, position)')
       .order('created_at');
 
-    PLAYLISTS = (playlistsData || []).map((p) => {
+    window.PLAYLISTS = (playlistsData || []).map((p) => {
       const trackIds = (p.playlist_tracks || [])
         .sort((a, b) => a.position - b.position)
         .map((pt) => pt.track_id);
@@ -91,20 +96,22 @@ async function loadSupabaseData() {
     });
 
     // Link album tracks
-    ALBUMS = ALBUMS.map((album) => {
-      const albumTracks = TRACKS.filter((t) => t.album_id === album.id);
+    window.ALBUMS = window.ALBUMS.map((album) => {
+      const albumTracks = window.TRACKS.filter((t) => t.album_id === album.id);
       return { ...album, trackIds: albumTracks.map((t) => t.id), tracks: albumTracks };
     });
 
-    ALL_ITEMS = [...PLAYLISTS, ...ALBUMS];
-    ITEM_BY_ID = Object.fromEntries(ALL_ITEMS.map((i) => [i.id, i]));
+    window.ALL_ITEMS = [...(window.PLAYLISTS || []), ...(window.ALBUMS || [])];
+    window.ITEM_BY_ID = Object.fromEntries((window.ALL_ITEMS || []).map((i) => [i.id, i]));
 
-    console.log('Loaded from Supabase:', TRACKS.length, 'tracks |', PLAYLISTS.length, 'playlists');
-    window.dispatchEvent(new CustomEvent('supabaseDataLoaded'));
+    console.log('Loaded from Supabase:', (window.TRACKS || []).length, 'tracks |', (window.PLAYLISTS || []).length, 'playlists');
+    window.dispatchEvent(new CustomEvent('supabaseDataLoaded', { detail: { refreshed: true } }));
   } catch (err) {
     console.error('Supabase load error:', err);
     window.dispatchEvent(new CustomEvent('supabaseDataLoaded'));
   }
 }
+
+window.reloadSupabaseData = loadSupabaseData;
 
 loadSupabaseData();
