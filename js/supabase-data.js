@@ -18,8 +18,10 @@ async function loadSupabaseData() {
     }
     // Load tracks with artist and album info. Multi-artist credits live in the
     // optional track_artists table, so fall back gracefully when it's missing.
+    // The !artist_id / !album_id hints keep the embeds unambiguous once
+    // track_artists adds a second path from tracks to artists.
     const trackSelect = (withCredits) =>
-      '*, artists(id, name, image_url), albums(title)' +
+      '*, artists!artist_id(id, name, image_url), albums!album_id(title)' +
       (withCredits ? ', track_artists(position, artists(id, name, image_url))' : '');
 
     let tracksRes = await window.supabaseClient
@@ -141,7 +143,7 @@ async function loadSupabaseData() {
     console.log('Loaded from Supabase:', (window.TRACKS || []).length, 'tracks |', (window.PLAYLISTS || []).length, 'playlists');
     window.dispatchEvent(new CustomEvent('supabaseDataLoaded', { detail: { refreshed: true } }));
   } catch (err) {
-    console.error('Supabase load error:', err);
+    console.error('Supabase load error:', err?.message || err);
     window.dispatchEvent(new CustomEvent('supabaseDataLoaded'));
   }
 }
