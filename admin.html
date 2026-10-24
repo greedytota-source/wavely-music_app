@@ -48,6 +48,9 @@
     .btn-ghost { background: transparent; color: #b3b3b3; border: 1px solid #444; }
     .btn-ghost:hover { background: #242424; color: #fff; }
     a.btn-small { display: inline-flex; align-items: center; text-decoration: none; }
+    .session-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #121212; border: 1px solid #2b2b2b; border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; color: #b3b3b3; font-size: 13px; }
+    .session-bar[hidden], .card[hidden] { display: none; }
+    #adminContent[hidden] { display: none; }
     #status { margin-top: 16px; padding: 12px 16px; border-radius: 4px; display: none; }
     .success { background: #1db95433; color: #1ed760; display: block !important; }
     .error { background: #ff000033; color: #ff6b6b; display: block !important; }
@@ -62,6 +65,25 @@
     <h1>Wavely Admin Panel</h1>
     <p class="subtitle">Upload music to your Supabase database</p>
 
+    <div class="session-bar" id="sessionBar" hidden>
+      <span>Signed in as <strong id="sessionEmail"></strong></span>
+      <button type="button" class="btn-small btn-ghost" id="signOutBtn">Sign out</button>
+    </div>
+
+    <div class="card" id="authGate" hidden>
+      <h2>Admin login</h2>
+      <p class="subtitle" style="margin-bottom: 20px;">Sirf signed-in admin upload/edit kar sakta hai.</p>
+      <form id="loginForm">
+        <label>Email</label>
+        <input type="email" id="loginEmail" placeholder="admin@example.com" autocomplete="username" required>
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" required>
+        <button type="submit" id="loginBtn">Sign in</button>
+      </form>
+      <div id="loginStatus"></div>
+    </div>
+
+    <div id="adminContent" hidden>
     <div class="card">
       <h2>Add New Track</h2>
       <form id="uploadForm">
@@ -148,6 +170,7 @@
         <p class="hint">Loading artists…</p>
       </div>
       <div id="artistStatus"></div>
+    </div>
     </div>
   </div>
 

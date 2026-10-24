@@ -576,8 +576,91 @@ function initAdmin() {
   }, { passive: false });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAdmin);
-} else {
+/* ── Auth gate ─────────────────────────────────────────────────── */
+
+let adminBooted = false;
+
+function bootAdmin() {
   initAdmin();
+  initArtistManager();
+}
+
+async function initAuthGate() {
+  const gate = document.getElementById('authGate');
+  const content = document.getElementById('adminContent');
+  const sessionBar = document.getElementById('sessionBar');
+  const emailLabel = document.getElementById('sessionEmail');
+  const loginStatus = document.getElementById('loginStatus');
+
+  if (!gate || !content) {
+    // No gate markup: fall back to the old behaviour.
+    bootAdmin();
+    return;
+  }
+
+  if (typeof window.supabaseClient === 'undefined') {
+    gate.hidden = false;
+    loginStatus.textContent = 'Supabase client load nahi hua';
+    loginStatus.className = 'error';
+    return;
+  }
+
+  const applySession = (session) => {
+    const signedIn = Boolean(session);
+    gate.hidden = signedIn;
+    content.hidden = !signedIn;
+    if (sessionBar) sessionBar.hidden = !signedIn;
+    if (emailLabel) emailLabel.textContent = signedIn ? session.email : '';
+
+    if (!signedIn) return;
+
+    if (!adminBooted) {
+      adminBooted = true;
+      bootAdmin();
+    } else {
+      refreshArtists();
+    }
+  };
+
+  const { data } = await window.supabaseClient.auth.getSession();
+  applySession(data ? data.session : null);
+
+  window.supabaseClient.auth.onAuthStateChange((_event, session) => applySession(session));
+
+  const loginForm = document.getElementById('loginForm');
+  loginForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const email = String(document.getElementById('loginEmail').value || '').trim();
+    const password = String(document.getElementById('loginPassword').value || '');
+    const loginBtn = document.getElementById('loginBtn');
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Signing in...';
+    loginStatus.textContent = '';
+    loginStatus.className = '';
+
+    const { error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
+
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Sign in';
+
+    if (error) {
+      loginStatus.textContent = error.message;
+      loginStatus.className = 'error';
+      return;
+    }
+
+    document.getElementById('loginPassword').value = '';
+  });
+
+  document.getElementById('signOutBtn')?.addEventListener('click', () => {
+    window.supabaseClient.auth.signOut();
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAuthGate);
+} else {
+  initAuthGate();
 }
