@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Wavely — procedural demo audio
+   vanimusic — procedural demo audio
    Generates original, royalty-free music with the Web Audio API so
    every track makes sound without shipping any audio files.
 

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Wavely — accounts
+   vanimusic — accounts
    Supabase Auth with Google OAuth and email/password. Exposes
    window.WavelyAuth so the player can react to sign in / sign out.
    ═══════════════════════════════════════════════════════════════ */
@@ -169,7 +169,7 @@
     const switchBtn = $("#authSwitch");
     const password = $("#authPassword");
 
-    if (title) title.textContent = signup ? "Create your account" : "Log in to Wavely";
+    if (title) title.textContent = signup ? "Create your account" : "Log in to vanimusic";
     if (submit) submit.textContent = signup ? "Sign up" : "Log in";
     if (switchText) switchText.textContent = signup ? "Already have an account?" : "New here?";
     if (switchBtn) switchBtn.textContent = signup ? "Log in" : "Create an account";

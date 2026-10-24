@@ -1,4 +1,4 @@
-# Wavely — Spotify-style web player
+# vanimusic — Spotify-style web player
 
 A pixel-close recreation of Spotify's **web player** layout and interaction model, built
 from scratch with plain HTML, CSS and JavaScript. No framework, no build step, no network

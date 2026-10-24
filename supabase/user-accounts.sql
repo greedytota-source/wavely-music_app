@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
--- Wavely — listener accounts
+-- vanimusic — listener accounts
 -- Run once in Supabase → SQL Editor.
 -- Public catalogue stays readable by everyone; playlists and likes
 -- become per-user.

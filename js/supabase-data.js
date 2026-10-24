@@ -115,7 +115,7 @@ async function loadSupabaseData() {
         type: 'Playlist',
         title: p.title,
         user_id: p.user_id || null,
-        owner: p.owner || 'Wavely',
+        owner: p.owner || 'vanimusic',
         description: p.description || '',
         cover_url: p.cover_url,
         seed: p.title,

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Wavely — demo catalogue
+   vanimusic — demo catalogue
    All artists, songs, albums and playlists here are fictional.
    Swap this file for a real API or local library when wiring audio.
    ═══════════════════════════════════════════════════════════════ */
@@ -68,7 +68,7 @@ const PLAYLISTS = [
     id: "discover",
     type: "Playlist",
     title: "Discover Weekly",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Discover Weekly",
     description: "Your weekly mixtape of fresh music. Enjoy new discoveries and deep cuts picked just for you. Updated every Monday.",
     trackIds: ["t1", "t33", "t25", "t17", "t6", "t30", "t38", "t23", "t15", "t13", "t34", "t40"],
@@ -78,7 +78,7 @@ const PLAYLISTS = [
     id: "release-radar",
     type: "Playlist",
     title: "Release Radar",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Release Radar",
     description: "Catch all the latest music from artists you follow, plus new singles picked for you. Updates every Friday.",
     trackIds: ["t40", "t39", "t38", "t37", "t36", "t35", "t34", "t33", "t32", "t31"]
@@ -87,7 +87,7 @@ const PLAYLISTS = [
     id: "daily-mix-1",
     type: "Playlist",
     title: "Daily Mix 1",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Daily Mix 1",
     description: "Nova Ray, The Slow Hours, Iris Vale and more.",
     trackIds: ["t1", "t9", "t40", "t4", "t11", "t19", "t2", "t8", "t29", "t10", "t30", "t3"]
@@ -96,7 +96,7 @@ const PLAYLISTS = [
     id: "late-night-drive",
     type: "Playlist",
     title: "Late Night Drive",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Late Night Drive",
     description: "Neon on the dashboard, empty roads, and the volume just a little too loud.",
     trackIds: ["t6", "t13", "t31", "t39", "t20", "t21", "t36", "t9", "t15", "t29", "t4", "t19"]
@@ -105,7 +105,7 @@ const PLAYLISTS = [
     id: "focus-flow",
     type: "Playlist",
     title: "Focus Flow",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Focus Flow",
     description: "Instrumental-leaning textures and steady rhythms to keep you in the zone.",
     trackIds: ["t15", "t33", "t5", "t30", "t23", "t34", "t12", "t14", "t28", "t38", "t7", "t24"]
@@ -114,7 +114,7 @@ const PLAYLISTS = [
     id: "indie-bloom",
     type: "Playlist",
     title: "Indie Bloom",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Indie Bloom",
     description: "Fresh guitars, soft edges, and the kind of choruses that sneak up on you.",
     trackIds: ["t17", "t18", "t34", "t35", "t2", "t8", "t29", "t3", "t10", "t25", "t26", "t27"]
@@ -123,7 +123,7 @@ const PLAYLISTS = [
     id: "golden-hour",
     type: "Playlist",
     title: "Golden Hour",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Golden Hour",
     description: "Warm light, open windows, and songs that feel like the last hour of daylight.",
     trackIds: ["t3", "t5", "t10", "t12", "t28", "t30", "t7", "t14", "t26", "t38"]
@@ -132,7 +132,7 @@ const PLAYLISTS = [
     id: "neon-nights",
     type: "Playlist",
     title: "Neon Nights",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Neon Nights",
     description: "Synths, city lights and a little bit of static.",
     trackIds: ["t1", "t9", "t20", "t21", "t36", "t40", "t6", "t13", "t31", "t39", "t23", "t24"]
@@ -141,7 +141,7 @@ const PLAYLISTS = [
     id: "coffee-rain",
     type: "Playlist",
     title: "Coffee & Rain",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Coffee & Rain",
     description: "Slow mornings, rain on the glass, nowhere to be.",
     trackIds: ["t7", "t14", "t25", "t26", "t27", "t38", "t2", "t29", "t3", "t12"]
@@ -150,7 +150,7 @@ const PLAYLISTS = [
     id: "sunday-slowdown",
     type: "Playlist",
     title: "Sunday Slowdown",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Sunday Slowdown",
     description: "No alarms, no agenda. Just a gentle soundtrack for the whole day.",
     trackIds: ["t2", "t8", "t17", "t18", "t34", "t35", "t3", "t10", "t5", "t28", "t19", "t12"]
@@ -159,7 +159,7 @@ const PLAYLISTS = [
     id: "road-trip",
     type: "Playlist",
     title: "Road Trip Radio",
-    owner: "Wavely",
+    owner: "vanimusic",
     seed: "Road Trip Radio",
     description: "Windows down, map folded badly, no fixed destination.",
     trackIds: ["t6", "t13", "t31", "t39", "t4", "t11", "t19", "t36", "t20", "t21", "t40", "t1"]

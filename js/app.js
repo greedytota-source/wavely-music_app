@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Wavely — app logic
+   vanimusic — app logic
    Client-side router, catalogue rendering, playback simulation
    (optionally real audio when a track defines `src`).
    ═══════════════════════════════════════════════════════════════ */
@@ -778,7 +778,7 @@
       id: `genre:${name}`,
       type: "Genre",
       title: name,
-      owner: "Wavely",
+      owner: "vanimusic",
       seed: genre.seed,
       description: `The best of ${name}, all in one place.`,
       tracks
@@ -799,7 +799,7 @@
           <h1 class="pl-title">${esc(name)}</h1>
           <p class="pl-desc">${esc(item.description)}</p>
           <div class="pl-meta">
-            <span class="avatar-xs">W</span><strong>Wavely</strong>
+            <span class="avatar-xs">v</span><strong>vanimusic</strong>
             <span class="dot">•</span><span>${plural(tracks.length, "song")},</span>
             <span class="total">${fmtLong(totalSec)}</span>
           </div>
@@ -1143,7 +1143,7 @@
         <div class="np-card-head"><h3>Credits</h3></div>
         <div class="credits">
           <div class="credit-row"><span class="role">Written by</span><span class="name">${esc(t.artist)}</span></div>
-          <div class="credit-row"><span class="role">Produced by</span><span class="name">Wavely Studios</span></div>
+          <div class="credit-row"><span class="role">Produced by</span><span class="name">vanimusic Studios</span></div>
           <div class="credit-row"><span class="role">Album</span><span class="name">${esc(t.album)}</span></div>
           <div class="credit-row"><span class="role">Duration</span><span class="name">${fmtTime(t.duration)}</span></div>
         </div>
@@ -1354,32 +1354,32 @@
 
     if (path === "/") {
       view.innerHTML = viewHome();
-      document.title = "Wavely — Web Player";
+      document.title = "vanimusic — Web Player";
     } else if (path === "/search") {
       view.innerHTML = viewSearchPage();
-      document.title = state.query ? `${state.query} — Wavely` : "Search — Wavely";
+      document.title = state.query ? `${state.query} — vanimusic` : "Search — vanimusic";
     } else if (path === "/library") {
       view.innerHTML = viewLibraryPage();
-      document.title = "Your Library — Wavely";
+      document.title = "Your Library — vanimusic";
     } else if (path === "/profile") {
       view.innerHTML = viewProfile();
-      document.title = "Your profile — Wavely";
+      document.title = "Your profile — vanimusic";
     } else if (path.startsWith("/playlist/")) {
       const id = decodeURIComponent(path.slice("/playlist/".length));
       const item = getItem(id);
       view.innerHTML = viewPlaylist(id);
-      document.title = item ? `${item.title} — Wavely` : "Not found — Wavely";
+      document.title = item ? `${item.title} — vanimusic` : "Not found — vanimusic";
     } else if (path.startsWith("/artist/")) {
       const name = decodeURIComponent(path.slice("/artist/".length));
       view.innerHTML = viewArtist(name);
-      document.title = (window.ARTIST_BY_NAME||{})[name] ? `${name} — Wavely` : "Not found — Wavely";
+      document.title = (window.ARTIST_BY_NAME||{})[name] ? `${name} — vanimusic` : "Not found — vanimusic";
     } else if (path.startsWith("/genre/")) {
       const name = decodeURIComponent(path.slice("/genre/".length));
       view.innerHTML = viewGenre(name);
-      document.title = (window.GENRE_BY_NAME||{})[name] ? `${name} — Wavely` : "Not found — Wavely";
+      document.title = (window.GENRE_BY_NAME||{})[name] ? `${name} — vanimusic` : "Not found — vanimusic";
     } else {
       view.innerHTML = viewNotFound();
-      document.title = "Not found — Wavely";
+      document.title = "Not found — vanimusic";
     }
 
     setActiveNav(path);
@@ -1394,7 +1394,7 @@
     const path = readRoute();
     if (path === "/search") {
       view.innerHTML = viewSearchPage();
-      document.title = state.query ? `${state.query} — Wavely` : "Search — Wavely";
+      document.title = state.query ? `${state.query} — vanimusic` : "Search — vanimusic";
       updateActiveRows();
       updatePlayingButtons();
     }
