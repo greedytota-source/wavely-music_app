@@ -191,6 +191,227 @@ async function getOrCreateAlbum(name, artistId) {
   return data.id;
 }
 
+/* ── Artists manager ───────────────────────────────────────────── */
+
+let editingArtistId = null;
+let artistUsage = { trackCount: () => 0, albumCount: () => 0 };
+
+function showArtistStatus(message, type) {
+  const status = document.getElementById('artistStatus');
+  if (!status) return;
+  status.textContent = message || '';
+  status.className = type || '';
+}
+
+async function loadArtistUsage() {
+  const client = window.supabaseClient;
+  const [tracksRes, creditsRes, albumsRes] = await Promise.all([
+    client.from('tracks').select('id, artist_id'),
+    client.from('track_artists').select('track_id, artist_id'),
+    client.from('albums').select('id, artist_id')
+  ]);
+
+  const tracksByArtist = new Map();
+  const addTrack = (artistId, trackId) => {
+    if (!artistId) return;
+    if (!tracksByArtist.has(artistId)) tracksByArtist.set(artistId, new Set());
+    tracksByArtist.get(artistId).add(trackId);
+  };
+
+  (tracksRes.data || []).forEach((t) => addTrack(t.artist_id, t.id));
+  (creditsRes.data || []).forEach((c) => addTrack(c.artist_id, c.track_id));
+
+  const albumsByArtist = new Map();
+  (albumsRes.data || []).forEach((a) => {
+    albumsByArtist.set(a.artist_id, (albumsByArtist.get(a.artist_id) || 0) + 1);
+  });
+
+  artistUsage = {
+    trackCount: (id) => (tracksByArtist.get(id) || { size: 0 }).size,
+    albumCount: (id) => albumsByArtist.get(id) || 0
+  };
+}
+
+function renderArtistManager() {
+  const list = document.getElementById('artistsList');
+  if (!list) return;
+
+  if (!artistsCache.length) {
+    list.innerHTML = '<p class="hint">Koi artist nahi hai — upar se add karo.</p>';
+    return;
+  }
+
+  list.innerHTML = artistsCache
+    .map((artist) => {
+      const tracks = artistUsage.trackCount(artist.id);
+      const albums = artistUsage.albumCount(artist.id);
+      const initial = (artist.name || '?').trim().charAt(0).toUpperCase();
+      const thumb = artist.image_url
+        ? `<img class="artist-thumb" src="${escapeHtml(artist.image_url)}" alt="">`
+        : `<span class="artist-thumb placeholder">${escapeHtml(initial)}</span>`;
+
+      return `<div class="artist-row" data-id="${escapeHtml(artist.id)}">
+        ${thumb}
+        <div class="artist-row-meta">
+          <strong>${escapeHtml(artist.name)}</strong>
+          <span>${tracks} track${tracks === 1 ? '' : 's'} • ${albums} album${albums === 1 ? '' : 's'}</span>
+        </div>
+        <div class="artist-row-actions">
+          <button type="button" class="btn-small" data-artist-edit="${escapeHtml(artist.id)}">Edit</button>
+          <button type="button" class="btn-small danger" data-artist-delete="${escapeHtml(artist.id)}">Delete</button>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+async function refreshArtists() {
+  await loadArtists();
+  await loadArtistUsage();
+  renderArtistManager();
+}
+
+function resetArtistForm() {
+  editingArtistId = null;
+  const nameInput = document.getElementById('artistNameInput');
+  const photoInput = document.getElementById('artistPhotoInput');
+  const submitBtn = document.getElementById('artistSubmitBtn');
+  const cancelBtn = document.getElementById('artistCancelBtn');
+
+  if (nameInput) nameInput.value = '';
+  if (photoInput) photoInput.value = '';
+  if (submitBtn) submitBtn.textContent = 'Add Artist';
+  if (cancelBtn) cancelBtn.hidden = true;
+}
+
+function startArtistEdit(artistId) {
+  const artist = artistsCache.find((a) => a.id === artistId);
+  if (!artist) return;
+
+  editingArtistId = artistId;
+  document.getElementById('artistNameInput').value = artist.name || '';
+  document.getElementById('artistPhotoInput').value = '';
+  document.getElementById('artistSubmitBtn').textContent = 'Update Artist';
+  document.getElementById('artistCancelBtn').hidden = false;
+  document.getElementById('artistNameInput').focus();
+}
+
+function initArtistManager() {
+  const form = document.getElementById('artistForm');
+  const list = document.getElementById('artistsList');
+  const cancelBtn = document.getElementById('artistCancelBtn');
+  if (!form) return;
+
+  cancelBtn?.addEventListener('click', () => {
+    resetArtistForm();
+    showArtistStatus('', '');
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const nameInput = document.getElementById('artistNameInput');
+    const photoInput = document.getElementById('artistPhotoInput');
+    const submitBtn = document.getElementById('artistSubmitBtn');
+    const name = String(nameInput.value || '').trim();
+    const photo = photoInput.files && photoInput.files.length ? photoInput.files[0] : null;
+
+    if (!name) {
+      showArtistStatus('Artist name required hai', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    try {
+      if (editingArtistId) {
+        const patch = { name };
+        if (photo) patch.image_url = await uploadImage(photo, 'artists');
+
+        const { data, error } = await window.supabaseClient
+          .from('artists')
+          .update(patch)
+          .eq('id', editingArtistId)
+          .select('id');
+
+        if (error) throw error;
+        if (!data || !data.length) {
+          throw new Error('Update block hua — artists par UPDATE policy chahiye (neeche diya SQL run karo)');
+        }
+        showArtistStatus('Artist update ho gaya', 'success');
+      } else {
+        const imageUrl = photo ? await uploadImage(photo, 'artists') : null;
+        const { error } = await window.supabaseClient
+          .from('artists')
+          .insert([{ name, image_url: imageUrl }]);
+
+        if (error) throw error;
+        showArtistStatus('Naya artist add ho gaya', 'success');
+      }
+
+      resetArtistForm();
+      await refreshArtists();
+    } catch (err) {
+      console.error('Artist save error:', err);
+      showArtistStatus('Error: ' + (err?.message || err), 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = editingArtistId ? 'Update Artist' : 'Add Artist';
+    }
+  });
+
+  list?.addEventListener('click', async (event) => {
+    const editBtn = event.target.closest('[data-artist-edit]');
+    if (editBtn) {
+      startArtistEdit(editBtn.dataset.artistEdit);
+      return;
+    }
+
+    const deleteBtn = event.target.closest('[data-artist-delete]');
+    if (!deleteBtn) return;
+
+    const artistId = deleteBtn.dataset.artistDelete;
+    const artist = artistsCache.find((a) => a.id === artistId);
+    if (!artist) return;
+
+    const tracks = artistUsage.trackCount(artistId);
+    const albums = artistUsage.albumCount(artistId);
+
+    if (tracks || albums) {
+      showArtistStatus(
+        `"${artist.name}" ke paas ${tracks} track aur ${albums} album hain — pehle unhe delete karo ya doosre artist ko assign karo.`,
+        'error'
+      );
+      return;
+    }
+
+    if (!confirm(`Delete artist "${artist.name}"?`)) return;
+
+    try {
+      await window.supabaseClient.from('track_artists').delete().eq('artist_id', artistId);
+
+      const { data, error } = await window.supabaseClient
+        .from('artists')
+        .delete()
+        .eq('id', artistId)
+        .select('id');
+
+      if (error) throw error;
+      if (!data || !data.length) {
+        throw new Error('Delete block hua — artists par DELETE policy chahiye (neeche diya SQL run karo)');
+      }
+
+      if (editingArtistId === artistId) resetArtistForm();
+      showArtistStatus('Artist delete ho gaya', 'success');
+      await refreshArtists();
+    } catch (err) {
+      console.error('Artist delete error:', err);
+      showArtistStatus('Error: ' + (err?.message || err), 'error');
+    }
+  });
+}
+
 /* ── Admin form ────────────────────────────────────────────────── */
 
 function selectedArtistIds() {
@@ -205,7 +426,8 @@ function initAdmin() {
     return;
   }
 
-  loadArtists();
+  refreshArtists();
+  initArtistManager();
 
   const artistPicker = document.getElementById('artistPicker');
   const artistSearch = document.getElementById('artistSearch');
@@ -339,7 +561,7 @@ function initAdmin() {
       selectedArtists.clear();
       if (artistSearch) artistSearch.value = '';
       setArtistPanelOpen(false);
-      loadArtists();
+      refreshArtists();
     } catch (error) {
       console.error('Upload error:', error);
       const msg = error && error.message ? error.message : String(error);

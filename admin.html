@@ -35,6 +35,18 @@
     .artist-thumb { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: #2a2a2a; }
     .artist-thumb.placeholder { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #1ed760; }
     .hint { color: #8f8f8f; font-size: 12px; font-weight: 400; margin: -8px 0 16px; }
+    .artist-admin-list { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+    .artist-row { display: flex; align-items: center; gap: 12px; background: #1a1a1a; border: 1px solid #2b2b2b; border-radius: 8px; padding: 10px 12px; }
+    .artist-row .artist-thumb { width: 40px; height: 40px; }
+    .artist-row-meta { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .artist-row-meta span { color: #8f8f8f; font-size: 12px; }
+    .artist-row-actions { display: flex; gap: 8px; }
+    .btn-small { background: #2a2a2a; color: #fff; border: 1px solid #3a3a3a; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; }
+    .btn-small:hover { background: #333; }
+    .btn-small.danger { color: #ff6b6b; border-color: #5a2a2a; }
+    .btn-small.danger:hover { background: #3a2020; }
+    .btn-ghost { background: transparent; color: #b3b3b3; border: 1px solid #444; }
+    .btn-ghost:hover { background: #242424; }
     #status { margin-top: 16px; padding: 12px 16px; border-radius: 4px; display: none; }
     .success { background: #1db95433; color: #1ed760; display: block !important; }
     .error { background: #ff000033; color: #ff6b6b; display: block !important; }
@@ -107,6 +119,34 @@
         <button type="submit" id="submitBtn">Upload Track</button>
       </form>
       <div id="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>Artists</h2>
+      <p class="subtitle" style="margin-bottom: 20px;">Artist add karo, naam/photo update karo, ya delete karo.</p>
+
+      <form id="artistForm">
+        <input type="hidden" id="editingArtistId">
+        <div class="row">
+          <div>
+            <label>Artist name *</label>
+            <input type="text" id="artistNameInput" placeholder="Artist ka naam" required>
+          </div>
+          <div>
+            <label>Photo (optional)</label>
+            <input type="file" id="artistPhotoInput" accept="image/*">
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button type="submit" id="artistSubmitBtn">Add Artist</button>
+          <button type="button" id="artistCancelBtn" class="btn-small btn-ghost" hidden>Cancel edit</button>
+        </div>
+      </form>
+
+      <div id="artistsList" class="artist-admin-list">
+        <p class="hint">Loading artists…</p>
+      </div>
+      <div id="artistStatus"></div>
     </div>
   </div>
 
