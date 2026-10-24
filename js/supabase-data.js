@@ -114,6 +114,7 @@ async function loadSupabaseData() {
         id: p.id,
         type: 'Playlist',
         title: p.title,
+        user_id: p.user_id || null,
         owner: p.owner || 'Wavely',
         description: p.description || '',
         cover_url: p.cover_url,
@@ -139,6 +140,17 @@ async function loadSupabaseData() {
 
     window.ALL_ITEMS = [...(window.PLAYLISTS || []), ...(window.ALBUMS || [])];
     window.ITEM_BY_ID = Object.fromEntries((window.ALL_ITEMS || []).map((i) => [i.id, i]));
+
+    // Likes for the signed-in listener (guests keep theirs in localStorage)
+    window.USER_LIKES = [];
+    const currentUser = window.WavelyAuth && window.WavelyAuth.user;
+    if (currentUser) {
+      const { data: likeRows, error: likeErr } = await window.supabaseClient
+        .from('likes')
+        .select('track_id')
+        .eq('user_id', currentUser.id);
+      if (!likeErr) window.USER_LIKES = (likeRows || []).map((row) => row.track_id);
+    }
 
     console.log('Loaded from Supabase:', (window.TRACKS || []).length, 'tracks |', (window.PLAYLISTS || []).length, 'playlists');
     window.dispatchEvent(new CustomEvent('supabaseDataLoaded', { detail: { refreshed: true } }));

@@ -51,6 +51,7 @@
 
       <div class="topbar-actions">
         <a class="pill pill-text admin-pill" href="admin.html" title="Open the admin panel"><i data-icon="plus" data-size="sm"></i><span>Admin</span></a>
+        <button class="pill pill-light" id="authBtn" type="button">Log in</button>
         <button class="pill pill-light" type="button" data-action="toast" data-msg="Premium checkout isn't part of this demo">Explore Premium</button>
         <button class="pill pill-text" type="button" data-action="toast" data-msg="Install prompt isn't part of this demo">
           <i data-icon="download" data-size="sm"></i><span>Install App</span>
@@ -58,13 +59,17 @@
         <button class="icon-btn round" type="button" aria-label="What's new" data-action="toast" data-msg="No new notifications">
           <i data-icon="bell" data-size="sm"></i>
         </button>
-        <button class="avatar" id="avatarBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">B</button>
+        <button class="avatar" id="avatarBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu" hidden>B</button>
         <div class="menu" id="accountMenu" role="menu" hidden>
-          <button type="button" role="menuitem" data-action="toast" data-msg="Account settings aren't part of this demo">Account</button>
-          <button type="button" role="menuitem" data-action="toast" data-msg="Your profile isn't part of this demo">Profile</button>
-          <button type="button" role="menuitem" data-action="toast" data-msg="Upgrade flow isn't part of this demo">Upgrade to Premium</button>
+          <div class="menu-user">
+            <strong id="accountName"></strong>
+            <span id="accountEmail"></span>
+          </div>
           <div class="menu-sep"></div>
-          <button type="button" role="menuitem" data-action="toast" data-msg="Signed out (demo)">Log out</button>
+          <button type="button" role="menuitem" data-action="open-profile">Profile</button>
+          <button type="button" role="menuitem" data-action="create-playlist">Create playlist</button>
+          <div class="menu-sep"></div>
+          <button type="button" role="menuitem" data-action="logout">Log out</button>
         </div>
       </div>
     </header>
@@ -88,7 +93,7 @@
               <i data-icon="library"></i><span>Your Library</span>
             </button>
             <div class="lib-head-actions">
-              <button class="icon-btn round" type="button" aria-label="Create playlist" title="Create playlist" data-action="toast" data-msg="Playlist creation isn't part of this demo">
+              <button class="icon-btn round" type="button" aria-label="Create playlist" title="Create playlist" data-action="create-playlist">
                 <i data-icon="plus" data-size="sm"></i>
               </button>
               <button class="icon-btn round" type="button" aria-label="Expand library" title="Expand library" data-action="toast" data-msg="Library layout is already expanded">
@@ -241,10 +246,65 @@
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
   </div>
 
+  <!-- Account modal -->
+  <div class="modal" id="authModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <button class="modal-close" id="authClose" type="button" aria-label="Close">✕</button>
+      <h2 class="auth-title" id="authTitle">Log in to Wavely</h2>
+      <p class="auth-sub">Apni playlists banao aur liked songs apne account me save karo.</p>
+
+      <button class="auth-google" id="authGoogle" type="button">
+        <span class="google-mark" aria-hidden="true">G</span>
+        Continue with Google
+      </button>
+
+      <div class="auth-or"><span>or</span></div>
+
+      <form id="authForm">
+        <label class="auth-label" for="authEmail">Email</label>
+        <input type="email" id="authEmail" required autocomplete="email" placeholder="you@example.com" />
+        <label class="auth-label" for="authPassword">Password</label>
+        <input type="password" id="authPassword" required minlength="6" autocomplete="current-password" placeholder="••••••••" />
+        <button class="auth-submit" id="authSubmit" type="submit">Log in</button>
+      </form>
+
+      <p class="auth-switch">
+        <span id="authSwitchText">New here?</span>
+        <button type="button" id="authSwitch">Create an account</button>
+      </p>
+      <p class="auth-msg" id="authMsg"></p>
+    </div>
+  </div>
+
+  <!-- Create playlist modal -->
+  <div class="modal" id="playlistModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="playlistTitle">
+      <button class="modal-close" id="playlistClose" type="button" aria-label="Close">✕</button>
+      <h2 class="auth-title" id="playlistTitle">Create playlist</h2>
+      <form id="playlistForm">
+        <label class="auth-label" for="playlistName">Playlist name</label>
+        <input type="text" id="playlistName" required maxlength="60" placeholder="My playlist" />
+        <button class="auth-submit" id="playlistSubmit" type="submit">Create</button>
+      </form>
+      <p class="auth-msg" id="playlistMsg"></p>
+    </div>
+  </div>
+
+  <!-- Add to playlist modal -->
+  <div class="modal" id="addModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+      <button class="modal-close" id="addClose" type="button" aria-label="Close">✕</button>
+      <h2 class="auth-title" id="addTitle">Add to playlist</h2>
+      <div class="add-list" id="addList"></div>
+      <p class="auth-msg" id="addMsg"></p>
+    </div>
+  </div>
+
   <script src="js/synth.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/supabase-data.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

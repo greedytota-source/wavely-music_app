@@ -462,6 +462,7 @@
     updateLikeUI();
     npKey = null;
     renderNowPlaying();
+    persistLike(id, !wasLiked);
     if (wasLiked) toast("Removed from Liked Songs");
     else toast("Added to Liked Songs", "check");
   }
@@ -584,9 +585,12 @@
       <div class="track-album"${albumId ? ` data-nav="/playlist/${albumId}"` : ""}>${esc(t.album)}</div>
       <div class="track-date">${esc(date)}</div>
       <span class="track-dur">${fmtTime(t.duration)}</span>
-      <button class="row-like ${liked ? "liked" : ""}" type="button" data-action="like" data-id="${t.id}" aria-label="${liked ? "Remove from" : "Save to"} Liked Songs">
-        ${icon("heart", "sm")}
-      </button>
+      <div class="row-actions">
+        <button class="row-add" type="button" data-action="add-to-playlist" data-id="${t.id}" aria-label="Add to playlist" title="Add to playlist">${icon("plus", "sm")}</button>
+        <button class="row-like ${liked ? "liked" : ""}" type="button" data-action="like" data-id="${t.id}" aria-label="${liked ? "Remove from" : "Save to"} Liked Songs">
+          ${icon("heart", "sm")}
+        </button>
+      </div>
     </div>`;
   }
 
@@ -808,6 +812,55 @@
       <button class="icon-btn plain" type="button" data-action="toast" data-msg="More options aren't part of this demo" aria-label="More options" title="More options">${icon("more")}</button>
     </div>
     ${body}`;
+  }
+
+  function viewProfile() {
+    const auth = window.WavelyAuth;
+    const user = auth && auth.user;
+
+    if (!user) {
+      return `<div class="page">
+        <h1 class="page-title">Your profile</h1>
+        <div class="empty-state">
+          <h3>Log in to see your profile</h3>
+          <p>Playlists aur liked songs account ke saath save hote hain.</p>
+          <button class="pill pill-light" type="button" data-action="login">Log in</button>
+        </div>
+      </div>`;
+    }
+
+    const name = auth.displayName(user) || "Listener";
+    const initial = (name.trim().charAt(0) || "U").toUpperCase();
+    const likedTracks = (window.TRACKS || []).filter((t) => state.liked.has(t.id));
+    const myPlaylists = (window.PLAYLISTS || []).filter((p) => p.user_id === user.id);
+
+    const likedSection = likedTracks.length
+      ? trackTable({ id: "liked", tracks: likedTracks })
+      : `<p class="profile-empty">Abhi koi liked song nahi — kisi bhi song par heart dabao.</p>`;
+
+    const playlistSection = myPlaylists.length
+      ? `<div class="card-grid">${myPlaylists.map((item) => card(item)).join("")}</div>`
+      : `<p class="profile-empty">Abhi koi playlist nahi — upar se ek banao.</p>`;
+
+    return `<div class="profile-hero">
+      <div class="profile-avatar">${esc(initial)}</div>
+      <div>
+        <h1 class="profile-name">${esc(name)}</h1>
+        <p class="profile-sub">${esc(user.email || "")}</p>
+        <div class="profile-actions">
+          <button class="pill pill-light" type="button" data-action="create-playlist">Create playlist</button>
+          <button class="pill pill-text" type="button" data-action="logout">Log out</button>
+        </div>
+      </div>
+    </div>
+    <section class="profile-section">
+      <h2>Liked songs <span class="profile-sub">(${likedTracks.length})</span></h2>
+      ${likedSection}
+    </section>
+    <section class="profile-section">
+      <h2>Your playlists <span class="profile-sub">(${myPlaylists.length})</span></h2>
+      ${playlistSection}
+    </section>`;
   }
 
   function viewLibraryPage() {
@@ -1308,6 +1361,9 @@
     } else if (path === "/library") {
       view.innerHTML = viewLibraryPage();
       document.title = "Your Library — Wavely";
+    } else if (path === "/profile") {
+      view.innerHTML = viewProfile();
+      document.title = "Your profile — Wavely";
     } else if (path.startsWith("/playlist/")) {
       const id = decodeURIComponent(path.slice("/playlist/".length));
       const item = getItem(id);
@@ -1408,11 +1464,203 @@
     play();
   }
 
+  /* ── Accounts: likes + user playlists ──────────────────────── */
+  const authUser = () => (window.WavelyAuth && window.WavelyAuth.user) || null;
+
+  async function persistLike(trackId, liked) {
+    const user = authUser();
+    const client = window.supabaseClient;
+    if (!user || !client) return;
+
+    try {
+      if (liked) await client.from("likes").insert([{ user_id: user.id, track_id: trackId }]);
+      else await client.from("likes").delete().eq("user_id", user.id).eq("track_id", trackId);
+    } catch (err) {
+      console.error("Like sync failed:", err);
+    }
+  }
+
+  async function syncGuestLikes(user) {
+    const guest = loadLiked();
+    const client = window.supabaseClient;
+    if (!guest.length || !client) return;
+
+    try {
+      await client.from("likes").upsert(
+        guest.map((id) => ({ user_id: user.id, track_id: id })),
+        { onConflict: "user_id,track_id", ignoreDuplicates: true }
+      );
+      try { localStorage.removeItem(LS_LIKED); } catch (_) {}
+    } catch (err) {
+      console.error("Guest likes sync failed:", err);
+    }
+  }
+
+  function closePlaylistModal() {
+    const modal = $("#playlistModal");
+    if (modal) modal.hidden = true;
+  }
+
+  function openPlaylistModal() {
+    if (!authUser()) {
+      window.WavelyAuth?.openModal("login");
+      return;
+    }
+
+    const modal = $("#playlistModal");
+    if (!modal) return;
+
+    const input = $("#playlistName");
+    const msg = $("#playlistMsg");
+    if (input) input.value = "";
+    if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+    modal.hidden = false;
+    setTimeout(() => input?.focus(), 40);
+  }
+
+  async function createPlaylist(title) {
+    const user = authUser();
+    const client = window.supabaseClient;
+    if (!user || !client) throw new Error("Pehle log in karo");
+
+    const { error } = await client.from("playlists").insert([{
+      title,
+      user_id: user.id,
+      owner: window.WavelyAuth.displayName(user) || "You"
+    }]);
+    if (error) throw error;
+
+    if (typeof window.reloadSupabaseData === "function") await window.reloadSupabaseData();
+    renderLibrarySidebar();
+    render();
+    toast(`Playlist "${title}" ban gayi`, "check");
+  }
+
+  let pendingTrackId = null;
+
+  function closeAddModal() {
+    const modal = $("#addModal");
+    if (modal) modal.hidden = true;
+  }
+
+  function openAddToPlaylist(trackId) {
+    const user = authUser();
+    if (!user) {
+      window.WavelyAuth?.openModal("login");
+      return;
+    }
+
+    const modal = $("#addModal");
+    const list = $("#addList");
+    if (!modal || !list) return;
+
+    pendingTrackId = trackId;
+
+    const msg = $("#addMsg");
+    if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+
+    const mine = (window.PLAYLISTS || []).filter((pl) => pl.user_id === user.id);
+    list.innerHTML = mine.length
+      ? mine.map((pl) => `<button class="add-item" type="button" data-playlist-id="${esc(pl.id)}">${icon("plus", "sm")}<span>${esc(pl.title)}</span></button>`).join("")
+      : `<p class="add-empty">Abhi koi playlist nahi — pehle "Create playlist" se ek banao.</p>`;
+
+    modal.hidden = false;
+  }
+
+  async function addTrackToPlaylist(playlistId, trackId) {
+    const client = window.supabaseClient;
+    if (!client || !playlistId || !trackId) return;
+
+    const { data: last } = await client
+      .from("playlist_tracks")
+      .select("position")
+      .eq("playlist_id", playlistId)
+      .order("position", { ascending: false })
+      .limit(1);
+
+    const position = (last && last.length ? last[0].position : -1) + 1;
+
+    const { error } = await client
+      .from("playlist_tracks")
+      .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
+    if (error) throw error;
+
+    if (typeof window.reloadSupabaseData === "function") await window.reloadSupabaseData();
+    render();
+    toast("Playlist me add ho gaya", "check");
+  }
+
+  function bindAccountUI() {
+    $("#playlistClose")?.addEventListener("click", closePlaylistModal);
+    $("#playlistModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "playlistModal") closePlaylistModal();
+    });
+    $("#playlistForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = $("#playlistName");
+      const msg = $("#playlistMsg");
+      const title = (input?.value || "").trim();
+      if (!title) return;
+
+      try {
+        await createPlaylist(title);
+        closePlaylistModal();
+      } catch (err) {
+        if (msg) {
+          msg.textContent = err?.message || String(err);
+          msg.className = "auth-msg error";
+        }
+      }
+    });
+
+    $("#addClose")?.addEventListener("click", closeAddModal);
+    $("#addModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "addModal") closeAddModal();
+    });
+    $("#addList")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-playlist-id]");
+      if (!btn) return;
+
+      try {
+        await addTrackToPlaylist(btn.dataset.playlistId, pendingTrackId);
+        closeAddModal();
+      } catch (err) {
+        const msg = $("#addMsg");
+        if (msg) {
+          msg.textContent = err?.message || String(err);
+          msg.className = "auth-msg error";
+        }
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closePlaylistModal();
+        closeAddModal();
+      }
+    });
+  }
+
   function handleAction(el) {
     const action = el.dataset.action;
     switch (action) {
       case "toast":
         toast(el.dataset.msg || "");
+        break;
+      case "login":
+        window.WavelyAuth?.openModal("login");
+        break;
+      case "logout":
+        window.WavelyAuth?.signOut();
+        break;
+      case "open-profile":
+        navigate("/profile");
+        break;
+      case "create-playlist":
+        openPlaylistModal();
+        break;
+      case "add-to-playlist":
+        openAddToPlaylist(el.dataset.id);
         break;
       case "play-track-card": {
         const id = el.dataset.trackId || el.dataset.id;
@@ -1703,6 +1951,7 @@
     cacheUI();
     hydrateIcons();
     bindEvents();
+    bindAccountUI();
     renderLibrarySidebar();
     syncFilterChips();
 
@@ -1717,6 +1966,10 @@
     render();
     renderNowPlaying(true);
     renderQueue();
+
+    booted = true;
+    if (pendingAuthRefresh || authUser()) refreshUserState();
+
     // Autostart synth if browser allows, or resume on first user gesture.
     document.addEventListener("click", () => {
       if (p.playing && currentTrack() && !currentTrack().src && synth) {
@@ -1739,6 +1992,35 @@
   } else {
     window.addEventListener("supabaseDataLoaded", start, { once: true });
   }
+
+  let booted = false;
+  let pendingAuthRefresh = false;
+
+  async function refreshUserState() {
+    if (!booted) {
+      pendingAuthRefresh = true;
+      return;
+    }
+
+    const user = authUser();
+
+    try {
+      if (user) await syncGuestLikes(user);
+    } catch (err) {
+      console.error(err);
+    }
+
+    if (typeof window.reloadSupabaseData === 'function') await window.reloadSupabaseData();
+
+    state.liked = user ? new Set(window.USER_LIKES || []) : loadLiked();
+    npKey = null;
+    renderLibrarySidebar();
+    render();
+    renderNowPlaying(true);
+    renderQueue();
+  }
+
+  window.addEventListener('authChanged', refreshUserState);
 
   window.addEventListener("supabaseDataLoaded", () => {
     try {
