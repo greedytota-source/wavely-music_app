@@ -19,6 +19,22 @@
   if (typeof window.GENRE_BY_NAME === 'undefined') window.GENRE_BY_NAME = {};
   if (typeof window.byIds === 'undefined') window.byIds = (ids) => (ids || []).map((id) => (window.TRACK_BY_ID || {})[id]).filter(Boolean);
 
+  /* Deterministic hash shared by the artwork and tint generators. It used to
+     live in js/data.js, which the Supabase build no longer loads. */
+  function hashString(str) {
+    const s = String(str ?? "");
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h);
+  }
+
+  /* Browse genres are optional: without a genre source the search page simply
+     has nothing to browse. */
+  const liveGenres = () => (Array.isArray(window.GENRES) ? window.GENRES : []);
+
   /* ── Icons ─────────────────────────────────────────────────── */
   const ICONS = {
     home: '<path d="M3 10.8 12 3.2l9 7.6V20a1 1 0 0 1-1 1h-5.3v-6.4H9.3V21H4a1 1 0 0 1-1-1Z"/>',
@@ -159,8 +175,9 @@
     return url;
   }
 
-  const trackArt = (t) => coverArt(t.album || t.title, { label: t.album || t.title });
-  const itemArt = (item) => coverArt(item.seed || item.title, { glyph: item.glyph || "", label: item.title });
+  /* Uploaded artwork wins; generated SVG is only the fallback. */
+  const trackArt = (t) => t.cover || coverArt(t.album || t.title, { label: t.album || t.title });
+  const itemArt = (item) => item.cover_url || coverArt(item.seed || item.title, { glyph: item.glyph || "", label: item.title });
   const artistArt = (name) => coverArt("artist:" + name, { label: name });
   const genreArt = (g) => coverArt(g.seed, { label: g.name });
 
@@ -214,9 +231,21 @@
   const currentTrack = () => p.queue[p.index] || null;
   const currentContext = () => currentTrack()?.contextId || null;
 
+  /* Liked Songs is a built-in playlist, not a catalogue row, so it needs its
+     own defaults when the catalogue comes from Supabase. */
+  const LIKED_ITEM = {
+    id: "liked",
+    type: "Playlist",
+    title: "Liked Songs",
+    owner: "You",
+    seed: "Liked Songs",
+    glyph: "♥",
+    description: "Every song you've liked, in one place."
+  };
+
   function getItem(id) {
     if (id === "liked") {
-      const base = (window.ITEM_BY_ID||{}).liked;
+      const base = (window.ITEM_BY_ID||{}).liked || LIKED_ITEM;
       const tracks = (window.TRACKS||[]).filter((t) => state.liked.has(t.id));
       return { ...base, tracks, trackIds: tracks.map((t) => t.id) };
     }
@@ -460,7 +489,7 @@
       `${i.title} ${i.description || ""} ${i.owner || ""} ${i.artist || ""}`.toLowerCase().includes(needle)
     );
     const artists = (window.ARTISTS||{}).filter((a) => a.name.toLowerCase().includes(needle));
-    const genres = GENRES.filter((g) => g.name.toLowerCase().includes(needle));
+    const genres = liveGenres().filter((g) => g.name.toLowerCase().includes(needle));
 
     genres.forEach((g) => {
       ((window.GENRE_TRACKS || {})[g.name] || []).forEach((id) => {
@@ -479,22 +508,29 @@
 
   function card(item, extraClass = "") {
     const isArtist = item.type === "Artist";
+    const isTrack = item.type === "Track";
     const path = isArtist
       ? `/artist/${encodeURIComponent(item.name)}`
-      : `/playlist/${encodeURIComponent(item.id)}`;
+      : isTrack
+        ? "#"
+        : `/playlist/${encodeURIComponent(item.id)}`;
     const sub = isArtist
       ? "Artist"
-      : item.type === "Album"
-        ? `${item.artist} • ${item.year}`
-        : item.description || `${item.tracks?.length || 0} songs`;
+      : isTrack
+        ? (item.artist || "")
+        : item.type === "Album"
+          ? `${item.artist}${item.year ? ` • ${item.year}` : ""}`
+          : item.description || `${item.tracks?.length || 0} songs`;
 
-    return `<article class="card ${isArtist ? "artist" : ""} ${extraClass}" role="link" tabindex="0" data-nav="${path}" aria-label="${esc(item.title || item.name)}">
+    const imgSrc = isArtist ? artistArt(item.name) : isTrack && item.tracks && item.tracks[0] ? trackArt(item.tracks[0]) : itemArt(item);
+
+    return `<article class="card ${isArtist ? "artist" : ""} ${extraClass}" role="link" tabindex="0" ${isTrack ? `data-action="play-track-card" data-track-id="${item.tracks && item.tracks[0] ? item.tracks[0].id : ''}"` : `data-nav="${path}"`} aria-label="${esc(item.title || item.name)}">
       <div class="card-img">
-        <img src="${isArtist ? artistArt(item.name) : itemArt(item)}" alt="" loading="lazy" />
+        <img src="${imgSrc}" alt="" loading="lazy" />
         ${
           isArtist
             ? ""
-            : `<button class="play-fab" type="button" data-action="play-context" data-id="${item.id}" data-label="${esc(item.title)}" aria-label="Play ${esc(item.title)}">${icon("play")}</button>`
+            : `<button class="play-fab" type="button" data-action="${isTrack ? "play-track-card" : "play-context"}" data-id="${isTrack && item.tracks && item.tracks[0] ? item.tracks[0].id : item.id}" data-label="${esc(item.title)}" aria-label="Play ${esc(item.title)}">${icon("play")}</button>`
         }
       </div>
       <h3 class="card-title">${esc(item.title || item.name)}</h3>
@@ -561,14 +597,52 @@
   }
 
   /* ── Views ─────────────────────────────────────────────────── */
+  /* Quick picks and shelves come from the live catalogue. The old hard-coded
+     demo ids pointed at playlists that no longer exist with Supabase data. */
+  function homeQuickPickIds() {
+    if (Array.isArray(window.QUICK_PICKS) && window.QUICK_PICKS.length) return window.QUICK_PICKS;
+    return [...(window.PLAYLISTS || []), ...(window.ALBUMS || [])].slice(0, 6).map((i) => i.id);
+  }
+
+  function homeShelves() {
+    if (Array.isArray(window.SHELVES) && window.SHELVES.length) return window.SHELVES;
+    const shelves = [];
+    if ((window.PLAYLISTS || []).length) {
+      shelves.push({ title: "Your playlists", ids: window.PLAYLISTS.map((p) => p.id) });
+    }
+    if ((window.ALBUMS || []).length) {
+      shelves.push({ title: "Albums", ids: window.ALBUMS.map((a) => a.id) });
+    }
+    return shelves;
+  }
+
   function viewHome() {
     const hour = new Date().getHours();
     const greeting =
       hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-    const quick = QUICK_PICKS.map(getItem).filter(Boolean).map(quickTile).join("");
+    const quick = homeQuickPickIds().map(getItem).filter(Boolean).map(quickTile).join("");
 
-    const shelves = SHELVES.map((shelf) => {
+    const recentTracks = ((window.TRACKS||[])).slice(0, 6).map(t => ({
+      id: 'track:'+t.id,
+      type: 'Track',
+      title: t.title,
+      artist: t.artist,
+      seed: t.title,
+      tracks: [t]
+    }));
+
+    let recentSection = '';
+    if (recentTracks.length) {
+      recentSection = `<section class="shelf">
+        <div class="shelf-head">
+          <h2 class="shelf-title">Recently added</h2>
+        </div>
+        <div class="card-grid">${recentTracks.map((i) => card(i)).join("")}</div>
+      </section>`;
+    }
+
+    const shelves = homeShelves().map((shelf) => {
       const items = shelf.ids.map(getItem).filter(Boolean);
       if (!items.length) return "";
       return `<section class="shelf">
@@ -583,6 +657,7 @@
     return `<div class="home">
       <h1 class="greeting">${greeting}</h1>
       <div class="quick-grid">${quick}</div>
+      ${recentSection}
       ${shelves}
     </div>`;
   }
@@ -770,7 +845,17 @@
   function viewSearchPage() {
     const q = state.query.trim();
     if (!q) {
-      const tiles = GENRES.map(genreTile).join("");
+      const genres = liveGenres();
+      if (!genres.length) {
+        return `<div class="search-page">
+          <h1 class="page-title">Browse all</h1>
+          <div class="empty-state">
+            <h3>Nothing to browse yet</h3>
+            <p>Genres appear here once the catalogue includes them.</p>
+          </div>
+        </div>`;
+      }
+      const tiles = genres.map(genreTile).join("");
 
       return `<div class="search-page">
         <h1 class="page-title">Browse all</h1>
@@ -961,7 +1046,7 @@
       )
       .join("");
 
-    body.innerHTML = `<img class="np-cover" src="${itemArt({ seed: t.album, title: t.album })}" alt="${esc(t.album)} cover" />
+    body.innerHTML = `<img class="np-cover" src="${trackArt(t)}" alt="${esc(t.album)} cover" />
       <div class="np-head">
         <div class="np-meta">
           <div class="np-title">${esc(t.title)}</div>
@@ -1041,8 +1126,8 @@
   function updatePlayerBar() {
     const t = currentTrack();
     if (!t) return;
-    UI.barArt.src = itemArt({ seed: t.album, title: t.album });
-    UI.barArt.alt = t.album;
+    UI.barArt.src = trackArt(t);
+    UI.barArt.alt = t.album || t.title;
     UI.barTitle.textContent = t.title;
     UI.barArtist.textContent = t.artist;
     const liked = state.liked.has(t.id);
@@ -1315,6 +1400,15 @@
       case "toast":
         toast(el.dataset.msg || "");
         break;
+      case "play-track-card": {
+        const id = el.dataset.trackId || el.dataset.id;
+        if (!id) break;
+        const tracks = (window.TRACKS||[]).filter(t=>t.id===id);
+        if (!tracks.length) break;
+        if (p.queue.length && currentTrack() && currentTrack().id === id) togglePlay();
+        else { setQueue(tracks, 0, "recent"); play(); }
+        break;
+      }
       case "play-context": {
         const id = el.dataset.id;
         if (currentContext() === id) togglePlay();

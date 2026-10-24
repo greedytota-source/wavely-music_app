@@ -101,6 +101,14 @@ async function loadSupabaseData() {
       return { ...album, trackIds: albumTracks.map((t) => t.id), tracks: albumTracks };
     });
 
+    // Hide album/artist rows left behind by uploads that never saved a track,
+    // so they don't show up as duplicate entries in the library and shelves.
+    const usedAlbumIds = new Set(window.TRACKS.map((t) => t.album_id).filter(Boolean));
+    const usedArtistIds = new Set(window.TRACKS.map((t) => t.artist_id).filter(Boolean));
+    window.ALBUMS = window.ALBUMS.filter((a) => usedAlbumIds.has(a.id));
+    window.ARTISTS = window.ARTISTS.filter((a) => usedArtistIds.has(a.id));
+    window.ARTIST_BY_NAME = Object.fromEntries(window.ARTISTS.map((a) => [a.name, a]));
+
     window.ALL_ITEMS = [...(window.PLAYLISTS || []), ...(window.ALBUMS || [])];
     window.ITEM_BY_ID = Object.fromEntries((window.ALL_ITEMS || []).map((i) => [i.id, i]));
 
