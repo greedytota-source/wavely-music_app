@@ -2,9 +2,9 @@ async function getOrCreateArtist(name) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('Artist is required');
   
-  if (typeof supabase === 'undefined') throw new Error('Supabase not initialized');
+  if (typeof window.supabaseClient === 'undefined') throw new Error('Supabase not initialized');
   
-  const { data: existing, error: findErr } = await supabase
+  const { data: existing, error: findErr } = await window.supabaseClient
     .from('artists')
     .select('id')
     .ilike('name', trimmed)
@@ -16,7 +16,7 @@ async function getOrCreateArtist(name) {
     return existing[0].id;
   }
   
-  const { data, error: insertErr } = await supabase
+  const { data, error: insertErr } = await window.supabaseClient
     .from('artists')
     .insert([{ name: trimmed }])
     .select()
@@ -32,9 +32,9 @@ async function getOrCreateAlbum(name, artistId) {
   if (!trimmed) return null;
   if (!artistId) return null;
   
-  if (typeof supabase === 'undefined') throw new Error('Supabase not initialized');
+  if (typeof window.supabaseClient === 'undefined') throw new Error('Supabase not initialized');
   
-  const { data: existing, error: findErr } = await supabase
+  const { data: existing, error: findErr } = await window.supabaseClient
     .from('albums')
     .select('id')
     .eq('artist_id', artistId)
@@ -47,7 +47,7 @@ async function getOrCreateAlbum(name, artistId) {
     return existing[0].id;
   }
   
-  const { data, error: insertErr } = await supabase
+  const { data, error: insertErr } = await window.supabaseClient
     .from('albums')
     .insert([{ title: trimmed, artist_id: artistId }])
     .select()
@@ -130,9 +130,9 @@ function initAdmin() {
       showStatus('Uploading audio file...', 'success');
       const audioExt = (audioFile.name.split('.').pop() || 'mp3').toLowerCase();
       const audioName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${audioExt}`;
-      const { error: audioError } = await supabase.storage.from('audio').upload(audioName, audioFile);
+      const { error: audioError } = await window.supabaseClient.storage.from('audio').upload(audioName, audioFile);
       if (audioError) throw audioError;
-      const { data: audioUrlData } = supabase.storage.from('audio').getPublicUrl(audioName);
+      const { data: audioUrlData } = window.supabaseClient.storage.from('audio').getPublicUrl(audioName);
       const audioUrl = audioUrlData.publicUrl;
       
       let coverUrl = null;
@@ -140,14 +140,14 @@ function initAdmin() {
         showStatus('Uploading cover art...', 'success');
         const coverExt = (coverFile.name.split('.').pop() || 'jpg').toLowerCase();
         const coverName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${coverExt}`;
-        const { error: coverError } = await supabase.storage.from('covers').upload(coverName, coverFile);
+        const { error: coverError } = await window.supabaseClient.storage.from('covers').upload(coverName, coverFile);
         if (coverError) throw coverError;
-        const { data: coverUrlData } = supabase.storage.from('covers').getPublicUrl(coverName);
+        const { data: coverUrlData } = window.supabaseClient.storage.from('covers').getPublicUrl(coverName);
         coverUrl = coverUrlData.publicUrl;
       }
       
       showStatus('Saving track to database...', 'success');
-      const { error: trackError } = await supabase.from('tracks').insert([{
+      const { error: trackError } = await window.supabaseClient.from('tracks').insert([{
         title,
         artist_id: artistId,
         album_id: albumId,

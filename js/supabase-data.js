@@ -12,7 +12,7 @@ const byIds = (ids) => (ids || []).map((id) => TRACK_BY_ID[id]).filter(Boolean);
 async function loadSupabaseData() {
   try {
     // Load tracks with artist and album info
-    const { data: tracksData, error: tracksError } = await supabaseClient
+    const { data: tracksData, error: tracksError } = await window.supabaseClient
       .from('tracks')
       .select('*, artists(name), albums(title)')
       .order('created_at', { ascending: false });
@@ -36,7 +36,7 @@ async function loadSupabaseData() {
     TRACK_BY_ID = Object.fromEntries(TRACKS.map((t) => [t.id, t]));
 
     // Load artists
-    const { data: artistsData } = await supabaseClient.from('artists').select('*').order('name');
+    const { data: artistsData } = await window.supabaseClient.from('artists').select('*').order('name');
     ARTISTS = (artistsData || []).map((a) => ({
       id: a.id,
       type: 'Artist',
@@ -47,7 +47,7 @@ async function loadSupabaseData() {
     ARTIST_BY_NAME = Object.fromEntries(ARTISTS.map((a) => [a.name, a]));
 
     // Load albums
-    const { data: albumsData } = await supabaseClient
+    const { data: albumsData } = await window.supabaseClient
       .from('albums')
       .select('*, artists(name)')
       .order('title');
@@ -67,7 +67,7 @@ async function loadSupabaseData() {
     }));
 
     // Load playlists with tracks
-    const { data: playlistsData } = await supabaseClient
+    const { data: playlistsData } = await window.supabaseClient
       .from('playlists')
       .select('*, playlist_tracks(track_id, position)')
       .order('created_at');
