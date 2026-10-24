@@ -257,6 +257,7 @@ function renderArtistManager() {
           <span>${tracks} track${tracks === 1 ? '' : 's'} • ${albums} album${albums === 1 ? '' : 's'}</span>
         </div>
         <div class="artist-row-actions">
+          <a class="btn-small btn-ghost" href="index.html#/artist/${encodeURIComponent(artist.name)}" title="Artist page kholo">View</a>
           <button type="button" class="btn-small" data-artist-edit="${escapeHtml(artist.id)}">Edit</button>
           <button type="button" class="btn-small danger" data-artist-delete="${escapeHtml(artist.id)}">Delete</button>
         </div>

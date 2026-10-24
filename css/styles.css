@@ -217,6 +217,7 @@ h1, h2, h3, p { margin: 0; }
 .pill-text { background: transparent; color: var(--muted); padding: 0 10px; }
 .pill-text:hover { color: #fff; transform: scale(1.03); }
 .pill-text .icon { width: 14px; height: 14px; }
+a.admin-pill { text-decoration: none; }
 
 .avatar {
   width: 32px;
@@ -1539,7 +1540,9 @@ h1, h2, h3, p { margin: 0; }
   .search { width: auto; flex: 1; max-width: none; height: 40px; }
   .search:focus-within { width: auto; box-shadow: 0 0 0 1.5px #fff; }
   .search-sep, .search-browse { display: none; }
-  .topbar-actions .pill { display: none; }
+  .topbar-actions .pill:not(.admin-pill) { display: none; }
+  .topbar-actions .admin-pill span { display: none; }
+  .topbar-actions .admin-pill { padding: 0 6px; }
   .topbar-actions { gap: 6px; }
   .avatar { width: 28px; height: 28px; }
 
