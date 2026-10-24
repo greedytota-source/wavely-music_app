@@ -1763,6 +1763,17 @@ a.admin-pill { text-decoration: none; }
   text-decoration: underline;
   cursor: pointer;
 }
+.auth-note {
+  margin: 0 0 16px;
+  padding: 9px 11px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #b3b3b3;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.auth-google:disabled { opacity: 0.6; cursor: progress; }
 .auth-msg { margin: 12px 0 0; min-height: 18px; font-size: 13px; }
 .auth-msg.error { color: #ff6b6b; }
 .auth-msg.success { color: var(--green); }

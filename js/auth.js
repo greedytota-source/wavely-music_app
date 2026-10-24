@@ -13,8 +13,90 @@
 
   let mode = "login";
 
+  // Provider availability from the Supabase project (null = not known yet).
+  const providers = { google: null, signupDisabled: null, autoconfirm: null };
+
   const auth = { user: null, ready: null, displayName };
   window.WavelyAuth = auth;
+
+  const ERROR_TEXT = {
+    invalid_credentials: "Email ya password galat hai — dobara try karo.",
+    email_not_confirmed: "Email abhi confirm nahi hua. Inbox me link kholo, phir log in karo.",
+    user_already_exists: "Ye email pehle se registered hai — log in karo.",
+    email_exists: "Ye email pehle se registered hai — log in karo.",
+    weak_password: "Password kamzor hai — kam se kam 6 characters rakho.",
+    signup_disabled: "Naye accounts abhi band hain. Thodi der baad try karo.",
+    provider_disabled: "Google login abhi setup nahi hua — email se log in karo.",
+    validation_failed: "Google login abhi setup nahi hua — email se log in karo.",
+    over_email_send_rate_limit: "Bahut zyada emails bheje gaye — kuch minute baad try karo.",
+    over_request_rate_limit: "Bahut zyada attempts — kuch der baad try karo.",
+    same_password: "Naya password purane se alag hona chahiye.",
+    otp_expired: "Link expire ho gaya — dobara bhejwao.",
+    access_denied: "Google login cancel ho gaya — dobara try karo."
+  };
+
+  // Turn Supabase's raw API strings into something a visitor can act on.
+  function friendlyMessage(error) {
+    const code = (error && (error.code || error.error_code)) || "";
+    const raw = (error && (error.message || error.msg)) || String(error || "");
+
+    if (ERROR_TEXT[code]) return ERROR_TEXT[code];
+    if (/access_denied|user denied|denied access/i.test(raw) || code === "access_denied")
+      return ERROR_TEXT.access_denied;
+    if (/unsupported provider|provider is not enabled|provider.*disabled/i.test(raw))
+      return ERROR_TEXT.provider_disabled;
+    if (/signups? not allowed|signups? disabled|signup.*not allowed/i.test(raw))
+      return ERROR_TEXT.signup_disabled;
+    if (/invalid login credentials/i.test(raw)) return ERROR_TEXT.invalid_credentials;
+    if (/email not confirmed/i.test(raw)) return ERROR_TEXT.email_not_confirmed;
+    if (/user already registered|already registered/i.test(raw)) return ERROR_TEXT.user_already_exists;
+    if (/password should be at least|weak password/i.test(raw)) return ERROR_TEXT.weak_password;
+    if (/rate limit|too many requests/i.test(raw)) return ERROR_TEXT.over_request_rate_limit;
+    if (/failed to fetch|networkerror|load failed/i.test(raw))
+      return "Network error — internet check karke dobara try karo.";
+    return raw || "Kuch galat ho gaya — dobara try karo.";
+  }
+
+  function showNote(text) {
+    const note = $("#authNote");
+    if (!note) return;
+    note.textContent = text || "";
+    note.hidden = !text;
+  }
+
+  function applyProviderUI() {
+    const googleBtn = $("#authGoogle");
+    const divider = $("#authOr");
+    const googleOff = providers.google === false;
+
+    if (googleBtn) googleBtn.hidden = googleOff;
+    if (divider) divider.hidden = googleOff;
+
+    if (mode === "signup" && providers.signupDisabled) {
+      showNote("Naye accounts abhi band hain — sirf existing account se log in ho sakta hai.");
+    } else if (googleOff) {
+      showNote("Google login abhi available nahi hai — email aur password se log in karo.");
+    } else {
+      showNote("");
+    }
+  }
+
+  async function loadProviders() {
+    const base = client.supabaseUrl;
+    const key = client.supabaseKey;
+    if (!base || !key) return;
+    try {
+      const res = await fetch(base + "/auth/v1/settings", { headers: { apikey: key } });
+      if (!res.ok) return;
+      const data = await res.json();
+      providers.google = Boolean(data.external && data.external.google);
+      providers.signupDisabled = Boolean(data.disable_signup);
+      providers.autoconfirm = data.mailer_autoconfirm !== false;
+      applyProviderUI();
+    } catch (err) {
+      console.warn("Auth settings unavailable", err);
+    }
+  }
 
   function displayName(user) {
     if (!user) return "";
@@ -81,6 +163,8 @@
     if (switchText) switchText.textContent = signup ? "Already have an account?" : "New here?";
     if (switchBtn) switchBtn.textContent = signup ? "Log in" : "Create an account";
     if (password) password.autocomplete = signup ? "new-password" : "current-password";
+
+    applyProviderUI();
   }
 
   function openModal(nextMode = "login") {
@@ -114,11 +198,30 @@
   }
 
   async function signInWithGoogle() {
-    const { error } = await client.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: location.origin + location.pathname + location.search }
-    });
-    if (error) setMessage(error.message, "error");
+    const button = $("#authGoogle");
+    const label = button ? button.innerHTML : "";
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Google par le ja rahe hain…";
+    }
+    setMessage("");
+
+    try {
+      const redirectTo = location.origin + location.pathname;
+      const { error } = await client.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo }
+      });
+      if (error) setMessage(friendlyMessage(error), "error");
+    } catch (err) {
+      setMessage(friendlyMessage(err), "error");
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = label;
+      }
+    }
   }
 
   async function signOut() {
@@ -156,7 +259,7 @@
         if (mode === "signup") await signUp(email, password);
         else await signIn(email, password);
       } catch (err) {
-        setMessage(err?.message || String(err), "error");
+        setMessage(friendlyMessage(err), "error");
       } finally {
         if (submit) {
           submit.disabled = false;
@@ -184,19 +287,75 @@
     setMode
   });
 
+  const AUTH_URL_KEYS = [
+    "error", "error_code", "error_description", "error_uri", "code", "state",
+    "access_token", "refresh_token", "expires_in", "expires_at", "token_type",
+    "type", "provider_token", "provider_refresh_token"
+  ];
+
+  // Read (but do not touch) what Supabase put in the URL after a redirect, so we can
+  // explain a failed Google round-trip instead of silently landing back on the site.
+  function parseAuthRedirect() {
+    const hash = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+    const search = new URLSearchParams(location.search);
+    const hashParams = new URLSearchParams(hash);
+    const get = (key) => search.get(key) || hashParams.get(key);
+
+    return {
+      error: get("error_description") || get("error"),
+      errorCode: get("error_code"),
+      hadToken: Boolean(get("code") || get("access_token")),
+      present: AUTH_URL_KEYS.some((key) => search.has(key) || hashParams.has(key))
+    };
+  }
+
+  // Only safe once Supabase has finished reading the URL (i.e. after getSession()).
+  function cleanAuthUrl(info) {
+    if (!info.present) return;
+
+    const search = new URLSearchParams(location.search);
+    const hash = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+    const hashParams = new URLSearchParams(hash);
+    AUTH_URL_KEYS.forEach((key) => {
+      search.delete(key);
+      hashParams.delete(key);
+    });
+
+    const route = location.hash.startsWith("#/") ? location.hash : "";
+    const qs = search.toString();
+    const rest = hashParams.toString();
+    const nextHash = rest ? "#" + rest : route;
+
+    history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + nextHash);
+  }
+
   if (!client) {
     console.error("Supabase client missing — accounts disabled");
     return;
   }
 
+  const redirectInfo = parseAuthRedirect();
+
   bind();
   renderAuthUI();
 
   auth.ready = (async () => {
+    loadProviders();
+
     const { data } = await client.auth.getSession();
     auth.user = data?.session?.user || null;
     renderAuthUI();
     emit();
+
+    cleanAuthUrl(redirectInfo);
+
+    if (redirectInfo.error) {
+      openModal("login");
+      setMessage(friendlyMessage({ code: redirectInfo.errorCode, message: redirectInfo.error }), "error");
+    } else if (redirectInfo.hadToken && !auth.user) {
+      openModal("login");
+      setMessage("Google login complete nahi ho paya — dobara try karo.", "error");
+    }
 
     client.auth.onAuthStateChange((_event, session) => {
       const nextUser = session?.user || null;
