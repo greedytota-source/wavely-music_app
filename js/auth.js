@@ -14,7 +14,12 @@
   let mode = "login";
 
   // Provider availability from the Supabase project (null = not known yet).
-  const providers = { google: null, signupDisabled: null, autoconfirm: null };
+  const providers = { google: null, facebook: null, signupDisabled: null, autoconfirm: null };
+
+  const SOCIAL_PROVIDERS = [
+    { key: "google", button: "#authGoogle", label: "Google" },
+    { key: "facebook", button: "#authFacebook", label: "Facebook" }
+  ];
 
   const auth = { user: null, ready: null, displayName };
   window.WavelyAuth = auth;
@@ -26,8 +31,8 @@
     email_exists: "Ye email pehle se registered hai — log in karo.",
     weak_password: "Password kamzor hai — kam se kam 6 characters rakho.",
     signup_disabled: "Naye accounts abhi band hain. Thodi der baad try karo.",
-    provider_disabled: "Google login abhi setup nahi hua — email se log in karo.",
-    validation_failed: "Google login abhi setup nahi hua — email se log in karo.",
+    provider_disabled: "Ye login option abhi setup nahi hua — email se log in karo.",
+    validation_failed: "Ye login option abhi setup nahi hua — email se log in karo.",
     over_email_send_rate_limit: "Bahut zyada emails bheje gaye — kuch minute baad try karo.",
     over_request_rate_limit: "Bahut zyada attempts — kuch der baad try karo.",
     same_password: "Naya password purane se alag hona chahiye.",
@@ -65,17 +70,21 @@
   }
 
   function applyProviderUI() {
-    const googleBtn = $("#authGoogle");
-    const divider = $("#authOr");
-    const googleOff = providers.google === false;
+    // Hide only the methods this project has not enabled (unknown = assume available).
+    const noneAvailable = SOCIAL_PROVIDERS.every(({ key, button }) => {
+      const available = providers[key] !== false;
+      const el = $(button);
+      if (el) el.hidden = !available;
+      return !available;
+    });
 
-    if (googleBtn) googleBtn.hidden = googleOff;
-    if (divider) divider.hidden = googleOff;
+    const divider = $("#authOr");
+    if (divider) divider.hidden = noneAvailable;
 
     if (mode === "signup" && providers.signupDisabled) {
       showNote("Naye accounts abhi band hain — sirf existing account se log in ho sakta hai.");
-    } else if (googleOff) {
-      showNote("Google login abhi available nahi hai — email aur password se log in karo.");
+    } else if (noneAvailable) {
+      showNote("Social login abhi available nahi hai — email aur password se log in karo.");
     } else {
       showNote("");
     }
@@ -89,7 +98,9 @@
       const res = await fetch(base + "/auth/v1/settings", { headers: { apikey: key } });
       if (!res.ok) return;
       const data = await res.json();
-      providers.google = Boolean(data.external && data.external.google);
+      const external = data.external || {};
+      providers.google = Boolean(external.google);
+      providers.facebook = Boolean(external.facebook);
       providers.signupDisabled = Boolean(data.disable_signup);
       providers.autoconfirm = data.mailer_autoconfirm !== false;
       applyProviderUI();
@@ -197,20 +208,39 @@
     else setMessage("Confirmation email bheja gaya hai — confirm karke log in karo.", "success");
   }
 
-  async function signInWithGoogle() {
-    const button = $("#authGoogle");
+  async function signInWithProvider(provider) {
+    const entry = SOCIAL_PROVIDERS.find((item) => item.key === provider);
+    const button = entry ? $(entry.button) : null;
     const label = button ? button.innerHTML : "";
 
     if (button) {
       button.disabled = true;
-      button.textContent = "Google par le ja rahe hain…";
+      button.textContent = (entry ? entry.label : "Provider") + " par le ja rahe hain…";
     }
     setMessage("");
+
+    // supabase-js redirects the whole tab to /auth/v1/authorize, which answers with a raw
+    // JSON error page when the provider is off. Make sure we know before we navigate.
+    try {
+      if (providers[provider] === null) await loadProviders();
+
+      if (providers[provider] === false) {
+        if (button) {
+          button.disabled = false;
+          button.innerHTML = label;
+        }
+        setMessage(friendlyMessage({ code: "provider_disabled" }), "error");
+        applyProviderUI();
+        return;
+      }
+    } catch (err) {
+      console.warn("Provider check failed", err);
+    }
 
     try {
       const redirectTo = location.origin + location.pathname;
       const { error } = await client.auth.signInWithOAuth({
-        provider: "google",
+        provider,
         options: { redirectTo }
       });
       if (error) setMessage(friendlyMessage(error), "error");
@@ -223,6 +253,9 @@
       }
     }
   }
+
+  const signInWithGoogle = () => signInWithProvider("google");
+  const signInWithFacebook = () => signInWithProvider("facebook");
 
   async function signOut() {
     try {
@@ -240,6 +273,7 @@
     });
     $("#authSwitch")?.addEventListener("click", () => setMode(mode === "signup" ? "login" : "signup"));
     $("#authGoogle")?.addEventListener("click", signInWithGoogle);
+    $("#authFacebook")?.addEventListener("click", signInWithFacebook);
 
     $("#authForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -281,6 +315,7 @@
     signIn,
     signUp,
     signInWithGoogle,
+    signInWithFacebook,
     signOut,
     openModal,
     closeModal,

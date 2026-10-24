@@ -1717,6 +1717,24 @@ a.admin-pill { text-decoration: none; }
   display: grid;
   place-items: center;
 }
+.auth-facebook {
+  margin-top: 10px;
+  border-color: transparent;
+  background: #1877f2;
+}
+.auth-facebook:hover { border-color: transparent; background: #2b83f6; }
+.facebook-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  color: #1877f2;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
 .auth-or {
   display: flex;
   align-items: center;
