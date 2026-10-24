@@ -20,7 +20,15 @@
     button:hover { background: #3be477; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .artists-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 16px; max-height: 220px; overflow-y: auto; }
+    .artist-select { position: relative; margin-bottom: 16px; }
+    .artist-select-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #242424; border: 1px solid #333; color: #fff; border-radius: 4px; padding: 12px; font-family: inherit; font-size: 14px; font-weight: 400; text-align: left; cursor: pointer; }
+    .artist-select-toggle:hover { border-color: #444; }
+    .artist-select-toggle .muted { color: #8f8f8f; }
+    .artist-select-toggle .chev { color: #8f8f8f; }
+    .artist-select-panel { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.55); }
+    .artist-select-panel[hidden] { display: none; }
+    .artist-select-panel input[type="search"] { margin-bottom: 8px; }
+    .artists-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; max-height: 200px; overflow-y: auto; }
     .artist-option { display: flex; align-items: center; gap: 10px; margin: 0; padding: 6px 8px; border-radius: 6px; font-weight: 500; cursor: pointer; }
     .artist-option:hover { background: #242424; }
     .artist-option input { width: auto; margin: 0; padding: 0; }
@@ -48,8 +56,17 @@
         <input type="text" id="title" placeholder="Enter song title" required>
 
         <label>Artists * <span class="hint">(ek ya zyada chuno)</span></label>
-        <div id="artistPicker" class="artists-picker">
-          <p class="hint">Loading artists…</p>
+        <div class="artist-select" id="artistSelect">
+          <button type="button" class="artist-select-toggle" id="artistToggle" aria-expanded="false" aria-haspopup="listbox">
+            <span id="artistToggleLabel" class="muted">Select artists…</span>
+            <span class="chev">▾</span>
+          </button>
+          <div class="artist-select-panel" id="artistPanel" hidden>
+            <input type="search" id="artistSearch" placeholder="Search artists…" autocomplete="off">
+            <div id="artistPicker" class="artists-picker" role="listbox" aria-multiselectable="true">
+              <p class="hint">Loading artists…</p>
+            </div>
+          </div>
         </div>
 
         <div class="row">

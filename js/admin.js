@@ -2,6 +2,7 @@ const escapeHtml = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let artistsCache = [];
+const selectedArtists = new Set();
 
 function showStatus(message, type) {
   const status = document.getElementById('status');
@@ -39,28 +40,68 @@ async function loadArtists() {
   renderArtistPicker();
 }
 
-function renderArtistPicker(selected = []) {
+function renderArtistPicker() {
   const picker = document.getElementById('artistPicker');
   if (!picker) return;
 
   if (!artistsCache.length) {
     picker.innerHTML = '<p class="hint">Abhi koi artist nahi hai — niche naya naam daalo.</p>';
+    updateArtistToggleLabel();
     return;
   }
 
-  picker.innerHTML = artistsCache
+  const query = String(document.getElementById('artistSearch')?.value || '').trim().toLowerCase();
+  const visible = artistsCache.filter((a) => !query || (a.name || '').toLowerCase().includes(query));
+
+  if (!visible.length) {
+    picker.innerHTML = '<p class="hint">Koi artist is search se match nahi hua.</p>';
+    updateArtistToggleLabel();
+    return;
+  }
+
+  picker.innerHTML = visible
     .map((artist) => {
       const initial = (artist.name || '?').trim().charAt(0).toUpperCase();
       const thumb = artist.image_url
         ? `<img class="artist-thumb" src="${escapeHtml(artist.image_url)}" alt="">`
         : `<span class="artist-thumb placeholder">${escapeHtml(initial)}</span>`;
-      const checked = selected.includes(artist.id) ? ' checked' : '';
+      const checked = selectedArtists.has(artist.id) ? ' checked' : '';
       return `<label class="artist-option">
         <input type="checkbox" value="${escapeHtml(artist.id)}"${checked}>
         ${thumb}<span>${escapeHtml(artist.name)}</span>
       </label>`;
     })
     .join('');
+
+  updateArtistToggleLabel();
+}
+
+function updateArtistToggleLabel() {
+  const label = document.getElementById('artistToggleLabel');
+  if (!label) return;
+
+  if (!selectedArtists.size) {
+    label.textContent = 'Select artists…';
+    label.classList.add('muted');
+    return;
+  }
+
+  const names = Array.from(selectedArtists)
+    .map((id) => (artistsCache.find((a) => a.id === id) || {}).name)
+    .filter(Boolean);
+
+  label.textContent = names.length > 2 ? `${names.length} artists selected` : names.join(', ');
+  label.classList.remove('muted');
+}
+
+function setArtistPanelOpen(open) {
+  const panel = document.getElementById('artistPanel');
+  const toggle = document.getElementById('artistToggle');
+  if (!panel || !toggle) return;
+
+  panel.hidden = !open;
+  toggle.setAttribute('aria-expanded', String(open));
+  if (open) document.getElementById('artistSearch')?.focus();
 }
 
 /* ── Supabase helpers ──────────────────────────────────────────── */
@@ -153,9 +194,7 @@ async function getOrCreateAlbum(name, artistId) {
 /* ── Admin form ────────────────────────────────────────────────── */
 
 function selectedArtistIds() {
-  return Array.from(document.querySelectorAll('#artistPicker input[type="checkbox"]:checked')).map(
-    (cb) => cb.value
-  );
+  return Array.from(selectedArtists);
 }
 
 function initAdmin() {
@@ -167,6 +206,32 @@ function initAdmin() {
   }
 
   loadArtists();
+
+  const artistPicker = document.getElementById('artistPicker');
+  const artistSearch = document.getElementById('artistSearch');
+
+  document.getElementById('artistToggle')?.addEventListener('click', () => {
+    setArtistPanelOpen(document.getElementById('artistPanel')?.hidden ?? true);
+  });
+
+  artistSearch?.addEventListener('input', renderArtistPicker);
+
+  artistPicker?.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('input[type="checkbox"]');
+    if (!checkbox) return;
+    if (checkbox.checked) selectedArtists.add(checkbox.value);
+    else selectedArtists.delete(checkbox.value);
+    updateArtistToggleLabel();
+  });
+
+  document.addEventListener('click', (event) => {
+    const root = document.getElementById('artistSelect');
+    if (root && !root.contains(event.target)) setArtistPanelOpen(false);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setArtistPanelOpen(false);
+  });
 
   uploadForm.onsubmit = null;
   uploadForm.addEventListener('submit', async (e) => {
@@ -271,6 +336,9 @@ function initAdmin() {
 
       showStatus('Track uploaded successfully!' + linkWarning, linkWarning ? 'error' : 'success');
       uploadForm.reset();
+      selectedArtists.clear();
+      if (artistSearch) artistSearch.value = '';
+      setArtistPanelOpen(false);
       loadArtists();
     } catch (error) {
       console.error('Upload error:', error);
