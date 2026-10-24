@@ -297,11 +297,17 @@ function startArtistEdit(artistId) {
   document.getElementById('artistNameInput').focus();
 }
 
+let artistManagerBound = false;
+
 function initArtistManager() {
+  if (artistManagerBound) return;
+
   const form = document.getElementById('artistForm');
   const list = document.getElementById('artistsList');
   const cancelBtn = document.getElementById('artistCancelBtn');
   if (!form) return;
+
+  artistManagerBound = true;
 
   cancelBtn?.addEventListener('click', () => {
     resetArtistForm();
@@ -327,6 +333,18 @@ function initArtistManager() {
 
     try {
       if (editingArtistId) {
+        const { data: clash } = await window.supabaseClient
+          .from('artists')
+          .select('id')
+          .ilike('name', name)
+          .neq('id', editingArtistId)
+          .limit(1);
+
+        if (clash && clash.length) {
+          showArtistStatus(`"${name}" naam ka artist pehle se hai — doosra artist isi naam se nahi bana sakte.`, 'error');
+          return;
+        }
+
         const patch = { name };
         if (photo) patch.image_url = await uploadImage(photo, 'artists');
 
@@ -342,6 +360,18 @@ function initArtistManager() {
         }
         showArtistStatus('Artist update ho gaya', 'success');
       } else {
+        const { data: existing } = await window.supabaseClient
+          .from('artists')
+          .select('id')
+          .ilike('name', name)
+          .limit(1);
+
+        if (existing && existing.length) {
+          showArtistStatus(`"${name}" pehle se exist karta hai — duplicate nahi banaya. Badalna ho to list me Edit dabao.`, 'error');
+          await refreshArtists();
+          return;
+        }
+
         const imageUrl = photo ? await uploadImage(photo, 'artists') : null;
         const { error } = await window.supabaseClient
           .from('artists')
@@ -419,13 +449,19 @@ function selectedArtistIds() {
   return Array.from(selectedArtists);
 }
 
+let adminBound = false;
+
 function initAdmin() {
+  if (adminBound) return;
+
   const uploadForm = document.getElementById('uploadForm');
   if (!uploadForm) {
     console.error('uploadForm not found');
     showStatus('Error: upload form not found', 'error');
     return;
   }
+
+  adminBound = true;
 
   refreshArtists();
   initArtistManager();
@@ -582,7 +618,6 @@ let adminBooted = false;
 
 function bootAdmin() {
   initAdmin();
-  initArtistManager();
 }
 
 async function initAuthGate() {
