@@ -16,27 +16,52 @@ async function loadSupabaseData() {
       window.dispatchEvent(new CustomEvent('supabaseDataLoaded'));
       return;
     }
-    // Load tracks with artist and album info
-    const { data: tracksData, error: tracksError } = await window.supabaseClient
+    // Load tracks with artist and album info. Multi-artist credits live in the
+    // optional track_artists table, so fall back gracefully when it's missing.
+    const trackSelect = (withCredits) =>
+      '*, artists(id, name, image_url), albums(title)' +
+      (withCredits ? ', track_artists(position, artists(id, name, image_url))' : '');
+
+    let tracksRes = await window.supabaseClient
       .from('tracks')
-      .select('*, artists(name), albums(title)')
+      .select(trackSelect(true))
       .order('created_at', { ascending: false });
 
-    if (tracksError) throw tracksError;
+    if (tracksRes.error) {
+      console.warn('track_artists unavailable, using single artist:', tracksRes.error.message);
+      tracksRes = await window.supabaseClient
+        .from('tracks')
+        .select(trackSelect(false))
+        .order('created_at', { ascending: false });
+    }
 
-    window.TRACKS = (tracksData || []).map((t) => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artists?.name || 'Unknown Artist',
-      artist_id: t.artist_id,
-      album: t.albums?.title || '',
-      album_id: t.album_id,
-      duration: t.duration || 0,
-      src: t.file_url,
-      cover: t.cover_url,
-      plays: t.plays ? t.plays.toLocaleString() : '0',
-      explicit: t.explicit || false
-    }));
+    if (tracksRes.error) throw tracksRes.error;
+
+    window.TRACKS = (tracksRes.data || []).map((t) => {
+      const credits = (t.track_artists || [])
+        .slice()
+        .sort((a, b) => a.position - b.position)
+        .map((row) => row.artists)
+        .filter(Boolean);
+      const names = credits.length ? credits.map((a) => a.name) : [t.artists?.name || 'Unknown Artist'];
+      const ids = credits.length ? credits.map((a) => a.id) : t.artist_id ? [t.artist_id] : [];
+
+      return {
+        id: t.id,
+        title: t.title,
+        artist: names.join(', '),
+        artist_id: t.artist_id,
+        artist_ids: ids,
+        artist_image: (credits.length ? credits[0].image_url : t.artists?.image_url) || null,
+        album: t.albums?.title || '',
+        album_id: t.album_id,
+        duration: t.duration || 0,
+        src: t.file_url,
+        cover: t.cover_url,
+        plays: t.plays ? t.plays.toLocaleString() : '0',
+        explicit: t.explicit || false
+      };
+    });
 
     window.TRACK_BY_ID = Object.fromEntries(window.TRACKS.map((t) => [t.id, t]));
 
@@ -51,10 +76,10 @@ async function loadSupabaseData() {
     }));
     window.ARTIST_BY_NAME = Object.fromEntries(window.ARTISTS.map((a) => [a.name, a]));
 
-    // Load albums
+    // Load albums (artist image doubles as the cover when no cover was uploaded)
     const { data: albumsData } = await window.supabaseClient
       .from('albums')
-      .select('*, artists(name)')
+      .select('*, artists(name, image_url)')
       .order('title');
 
     window.ALBUMS = (albumsData || []).map((a) => ({
@@ -65,6 +90,7 @@ async function loadSupabaseData() {
       artist_id: a.artist_id,
       year: a.year,
       cover_url: a.cover_url,
+      artist_image_url: a.artists?.image_url || null,
       description: a.description || '',
       owner: a.artists?.name || 'Unknown Artist',
       seed: a.title,

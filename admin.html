@@ -20,6 +20,13 @@
     button:hover { background: #3be477; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .artists-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-bottom: 16px; max-height: 220px; overflow-y: auto; }
+    .artist-option { display: flex; align-items: center; gap: 10px; margin: 0; padding: 6px 8px; border-radius: 6px; font-weight: 500; cursor: pointer; }
+    .artist-option:hover { background: #242424; }
+    .artist-option input { width: auto; margin: 0; padding: 0; }
+    .artist-thumb { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: #2a2a2a; }
+    .artist-thumb.placeholder { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #1ed760; }
+    .hint { color: #8f8f8f; font-size: 12px; font-weight: 400; margin: -8px 0 16px; }
     #status { margin-top: 16px; padding: 12px 16px; border-radius: 4px; display: none; }
     .success { background: #1db95433; color: #1ed760; display: block !important; }
     .error { background: #ff000033; color: #ff6b6b; display: block !important; }
@@ -40,16 +47,25 @@
         <label>Song Title *</label>
         <input type="text" id="title" placeholder="Enter song title" required>
 
+        <label>Artists * <span class="hint">(ek ya zyada chuno)</span></label>
+        <div id="artistPicker" class="artists-picker">
+          <p class="hint">Loading artists…</p>
+        </div>
+
         <div class="row">
           <div>
-            <label>Artist *</label>
-            <input type="text" id="artistName" placeholder="Enter artist name" required>
+            <label>New artist name (optional)</label>
+            <input type="text" id="newArtistName" placeholder="e.g. Kumar Sanu">
           </div>
           <div>
-            <label>Album</label>
-            <input type="text" id="albumName" placeholder="Enter album name (leave empty for single)">
+            <label>Artist photo (optional)</label>
+            <input type="file" id="artistImage" accept="image/*">
           </div>
         </div>
+        <p class="hint">Photo naye artist par lagti hai. Agar naya naam khaali ho aur sirf ek existing artist select ho, to us artist ki photo update hoti hai.</p>
+
+        <label>Album</label>
+        <input type="text" id="albumName" placeholder="Enter album name (leave empty for single)">
 
         <div class="row">
           <div>

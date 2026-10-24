@@ -177,8 +177,12 @@
 
   /* Uploaded artwork wins; generated SVG is only the fallback. */
   const trackArt = (t) => t.cover || coverArt(t.album || t.title, { label: t.album || t.title });
-  const itemArt = (item) => item.cover_url || coverArt(item.seed || item.title, { glyph: item.glyph || "", label: item.title });
-  const artistArt = (name) => coverArt("artist:" + name, { label: name });
+  const itemArt = (item) =>
+    item.cover_url || item.artist_image_url || coverArt(item.seed || item.title, { glyph: item.glyph || "", label: item.title });
+  const artistArt = (name) => {
+    const artist = (window.ARTIST_BY_NAME || {})[name];
+    return (artist && artist.image_url) || coverArt("artist:" + name, { label: name });
+  };
   const genreArt = (g) => coverArt(g.seed, { label: g.name });
 
   function tintFor(seed) {
@@ -242,6 +246,16 @@
     glyph: "♥",
     description: "Every song you've liked, in one place."
   };
+
+  /* A track can credit several artists, so match on ids as well as the
+     joined display name (used by artist pages and playback contexts). */
+  function tracksByArtist(name) {
+    const artist = (window.ARTIST_BY_NAME || {})[name];
+    const artistId = artist && artist.id;
+    return (window.TRACKS || []).filter(
+      (t) => (artistId && (t.artist_ids || []).includes(artistId)) || t.artist === name
+    );
+  }
 
   function getItem(id) {
     if (id === "liked") {
@@ -705,7 +719,7 @@
     if (!artist) return viewNotFound();
 
     const info = artistInfo(name);
-    const tracks = (window.TRACKS||[]).filter((t) => t.artist === name);
+    const tracks = tracksByArtist(name);
     const albums = (window.ALBUMS||{}).filter((a) => a.artist === name);
     const following = state.following.has(name);
 
@@ -1354,7 +1368,7 @@
     }
     if (contextId.startsWith("artist:")) {
       const name = contextId.slice("artist:".length);
-      const tracks = (window.TRACKS||[]).filter((t) => t.artist === name);
+      const tracks = tracksByArtist(name);
       setQueue(tracks, index, contextId);
       play();
       return;
@@ -1381,7 +1395,7 @@
   }
 
   function playArtist(name) {
-    const tracks = (window.TRACKS||[]).filter((t) => t.artist === name);
+    const tracks = tracksByArtist(name);
     if (!tracks.length) return;
     setQueue(tracks, 0, `artist:${name}`);
     play();
