@@ -6,6 +6,18 @@
 
 (() => {
   "use strict";
+  // Ensure globals exist from Supabase or fallback
+  if (typeof window.TRACKS === 'undefined') window.TRACKS = [];
+  if (typeof window.PLAYLISTS === 'undefined') window.PLAYLISTS = [];
+  if (typeof window.ARTISTS === 'undefined') window.ARTISTS = [];
+  if (typeof window.ALBUMS === 'undefined') window.ALBUMS = [];
+  if (typeof window.ALL_ITEMS === 'undefined') window.ALL_ITEMS = [];
+  if (typeof window.ITEM_BY_ID === 'undefined') window.ITEM_BY_ID = {};
+  if (typeof window.ARTIST_BY_NAME === 'undefined') window.ARTIST_BY_NAME = {};
+  if (typeof window.TRACK_BY_ID === 'undefined') window.TRACK_BY_ID = {};
+  if (typeof window.GENRE_TRACKS === 'undefined') window.GENRE_TRACKS = {};
+  if (typeof window.GENRE_BY_NAME === 'undefined') window.GENRE_BY_NAME = {};
+  if (typeof window.byIds === 'undefined') window.byIds = (ids) => (ids || []).map((id) => (window.TRACK_BY_ID || {})[id]).filter(Boolean);
 
   /* ── Icons ─────────────────────────────────────────────────── */
   const ICONS = {
@@ -433,9 +445,9 @@
 
   /* ── Library data ──────────────────────────────────────────── */
   function libraryItems(filter = state.libFilter) {
-    if (filter === "artists") return ARTISTS;
-    if (filter === "albums") return ALBUMS;
-    return [getItem("liked"), ...(window.PLAYLISTS||{}).filter((x) => x.id !== "liked")];
+    if (filter === "artists") return window.ARTISTS || [];
+    if (filter === "albums") return window.ALBUMS || [];
+    return [getItem("liked"), ...((window.PLAYLISTS||[]).filter((x) => x.id !== "liked"))];
   }
 
   /* ── Search ────────────────────────────────────────────────── */
@@ -529,7 +541,7 @@
   }
 
   function itemIdForAlbum(albumName) {
-    const album = (window.ALBUMS||{}).find((a) => a.title === albumName);
+    const album = ((window.ALBUMS||[])).find((a) => a.title === albumName);
     return album ? album.id : null;
   }
 
@@ -664,10 +676,10 @@
   }
 
   function viewGenre(name) {
-    const genre = GENRE_BY_NAME[name];
+    const genre = (window.GENRE_BY_NAME||{})[name];
     if (!genre) return viewNotFound();
 
-    const tracks = byIds(GENRE_TRACKS[name] || []);
+    const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
     const totalSec = tracks.reduce((sum, t) => sum + t.duration, 0);
     const item = {
       id: `genre:${name}`,
@@ -1209,7 +1221,7 @@
     } else if (path.startsWith("/genre/")) {
       const name = decodeURIComponent(path.slice("/genre/".length));
       view.innerHTML = viewGenre(name);
-      document.title = GENRE_BY_NAME[name] ? `${name} — Wavely` : "Not found — Wavely";
+      document.title = (window.GENRE_BY_NAME||{})[name] ? `${name} — Wavely` : "Not found — Wavely";
     } else {
       view.innerHTML = viewNotFound();
       document.title = "Not found — Wavely";
@@ -1264,7 +1276,7 @@
     }
     if (contextId.startsWith("genre:")) {
       const name = contextId.slice("genre:".length);
-      const tracks = byIds(GENRE_TRACKS[name] || []);
+      const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
       setQueue(tracks, index, contextId);
       play();
       return;
@@ -1291,7 +1303,7 @@
   }
 
   function playGenre(name) {
-    const tracks = byIds(GENRE_TRACKS[name] || []);
+    const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
     if (!tracks.length) return;
     setQueue(tracks, 0, `genre:${name}`);
     play();

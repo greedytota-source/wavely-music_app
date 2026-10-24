@@ -49,7 +49,8 @@ const TRACKS = [
 
 const TRACK_BY_ID = Object.fromEntries(TRACKS.map((t) => [t.id, t]));
 
-const byIds = (ids) => ids.map((id) => TRACK_BY_ID[id]).filter(Boolean);
+window.byIds = (ids) => (ids || []).map((id) => (window.TRACK_BY_ID || {})[id]).filter(Boolean);
+const byIds = window.byIds;
 
 const PLAYLISTS = [
   {
@@ -285,7 +286,8 @@ window.GENRE_TRACKS = {
 };
 const GENRE_TRACKS = window.GENRE_TRACKS;
 
-const GENRE_BY_NAME = Object.fromEntries(GENRES.map((g) => [g.name, g]));
+window.GENRE_BY_NAME = Object.fromEntries(GENRES.map((g) => [g.name, g]));
+const GENRE_BY_NAME = window.GENRE_BY_NAME;
 
 /* Small deterministic hash shared by the UI and artwork generators. */
 function hashString(str) {
