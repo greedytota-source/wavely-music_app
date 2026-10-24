@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>harness</title>
+<style>body{margin:0;background:#333}iframe{display:block;border:0}</style>
+</head><body>
+<script>
+const CASES = [
+  { w: 1440, h: 900, route: "/" },
+  { w: 1440, h: 900, route: "/playlist/discover" },
+  { w: 1180, h: 800, route: "/" },
+  { w: 816, h: 755, route: "/" },
+  { w: 816, h: 755, route: "/playlist/discover" },
+  { w: 390, h: 844, route: "/" },
+  { w: 390, h: 844, route: "/search?q=nova" }
+];
+window.__results = null;
+let done = 0;
+const out = [];
+CASES.forEach((c, idx) => {
+  const f = document.createElement("iframe");
+  f.width = c.w; f.height = c.h;
+  f.src = "http://localhost:4173/#" + c.route;
+  f.dataset.idx = idx;
+  f.onload = () => {
+    setTimeout(() => {
+      try {
+        const d = f.contentDocument, w = f.contentWindow;
+        if (c.route.startsWith("/search")) {
+          const inp = d.querySelector("#searchInput");
+          if (inp) { inp.value = "nova"; inp.dispatchEvent(new w.Event("input", { bubbles: true })); }
+        }
+        const vis = (el) => { if (!el) return false; const s = w.getComputedStyle(el); const r = el.getBoundingClientRect(); return s.display !== "none" && s.visibility !== "hidden" && r.width > 0 && r.height > 0; };
+        const rect = (sel) => { const el = d.querySelector(sel); if (!el || !vis(el)) return null; const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
+        const gridCols = (sel) => { const el = d.querySelector(sel); return el ? w.getComputedStyle(el).gridTemplateColumns : null; };
+        const overflow = [...d.querySelectorAll("body *")].filter(el => {
+          if (el.closest(".queue-drawer")) return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && (r.right > w.innerWidth + 1 || r.left < -1);
+        }).slice(0, 5).map(el => el.tagName + "." + String(el.className).split(" ")[0]);
+        out[idx] = {
+          case: c,
+          viewport: [w.innerWidth, w.innerHeight],
+          sidebarW: rect(".sidebar"),
+          libraryPanel: rect(".library-panel"),
+          libItems: d.querySelectorAll(".lib-item").length,
+          libItemsVisible: [...d.querySelectorAll(".lib-item")].filter(vis).length,
+          chipsVisible: vis(d.querySelector(".chips")),
+          main: rect(".main"),
+          np: rect(".now-playing"),
+          npOpen: d.querySelector("#app").classList.contains("np-open"),
+          player: rect(".player"),
+          progressVisible: vis(d.querySelector(".progress-row")),
+          volumeVisible: vis(d.querySelector(".volume")),
+          mobileNav: vis(d.querySelector(".mobile-nav")),
+          topbarPills: vis(d.querySelector(".pill-light")),
+          trackGrid: gridCols(".track-row"),
+          quickCols: gridCols(".quick-grid"),
+          cardCols: gridCols(".card-grid"),
+          rows: d.querySelectorAll(".track-row").length,
+          songs: d.querySelectorAll(".song-row").length,
+          title: d.title,
+          overflow
+        };
+      } catch (e) { out[idx] = { case: c, error: String(e) }; }
+      if (++done === CASES.length) window.__results = out;
+    }, 900);
+  };
+  document.body.appendChild(f);
+});
+</script>
+</body></html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>audit</title>
+<style>body{margin:0;background:#333}iframe{display:block;border:0}</style>
+</head><body>
+<script>
+const CASES = [
+  { w: 1440, h: 900, route: "/" },
+  { w: 1440, h: 900, route: "/playlist/discover" },
+  { w: 1440, h: 900, route: "/artist/Nova%20Ray" },
+  { w: 1440, h: 900, route: "/library" },
+  { w: 1280, h: 800, route: "/" }
+];
+window.__audit = null;
+let done = 0; const out = [];
+CASES.forEach((c, idx) => {
+  const f = document.createElement("iframe");
+  f.width = c.w; f.height = c.h; f.src = "http://localhost:4173/#" + c.route;
+  f.onload = () => setTimeout(() => {
+    try {
+      const d = f.contentDocument, w = f.contentWindow;
+      const R = (el) => el.getBoundingClientRect();
+      const overlaps = (a, b) => { if (!a || !b) return 0; const A = R(a), B = R(b); const x = Math.min(A.right, B.right) - Math.max(A.left, B.left); const y = Math.min(A.bottom, B.bottom) - Math.max(A.top, B.top); return x > 1 && y > 1 ? Math.round(x * y) : 0; };
+      const visible = (el) => el && w.getComputedStyle(el).display !== "none" && R(el).width > 0;
+      const tb = d.querySelector(".topbar");
+      const kids = [...tb.children].filter(visible);
+      const tbPairs = [];
+      for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
+        const o = overlaps(kids[i], kids[j]);
+        if (o) tbPairs.push({ a: kids[i].className, b: kids[j].className, px: o });
+      }
+      const pl = d.querySelector(".player-left"), pc = d.querySelector(".player-center"), pr = d.querySelector(".player-right");
+      const playerPairs = [];
+      const pp = [[pl, pc, "left/center"], [pc, pr, "center/right"], [pl, pr, "left/right"]];
+      pp.forEach(([a, b, n]) => { const o = overlaps(a, b); if (o) playerPairs.push({ pair: n, px: o }); });
+      const hero = d.querySelector(".pl-hero, .artist-hero");
+      const cover = d.querySelector(".pl-cover, .artist-photo");
+      const title = d.querySelector(".pl-title, .artist-name");
+      const outInfo = {
+        case: c,
+        title: d.title,
+        topbarOverlaps: tbPairs,
+        playerOverlaps: playerPairs,
+        hero: hero ? [Math.round(R(hero).height), Math.round(R(hero).width)] : null,
+        cover: cover ? [Math.round(R(cover).width), Math.round(R(cover).height), Math.round(R(cover).top)] : null,
+        titleBox: title ? [Math.round(R(title).width), Math.round(R(title).height), Math.round(R(title).top)] : null,
+        titleWraps: title ? Math.round(R(title).height / parseFloat(w.getComputedStyle(title).lineHeight || 1)) : null,
+        npScrollOverflow: (() => { const el = d.querySelector(".np-scroll"); return el ? el.scrollHeight - el.clientHeight : null; })(),
+        mainScroll: (() => { const el = d.querySelector(".main-scroll"); return el ? [el.scrollHeight, el.clientHeight] : null; })(),
+        cardWidths: [...d.querySelectorAll(".card")].slice(0, 6).map(el => Math.round(R(el).width)),
+        cardImgHeights: [...d.querySelectorAll(".card-img")].slice(0, 3).map(el => Math.round(R(el).height)),
+        rowHeights: [...d.querySelectorAll(".track-row")].slice(0, 3).map(el => Math.round(R(el).height)),
+        playerCenterW: pc ? Math.round(R(pc).width) : null,
+        progressW: d.querySelector("#progressBar") ? Math.round(R(d.querySelector("#progressBar")).width) : null,
+        volumeW: d.querySelector("#volumeBar") ? Math.round(R(d.querySelector("#volumeBar")).width) : null,
+        npCover: d.querySelector(".np-cover") ? Math.round(R(d.querySelector(".np-cover")).width) : null,
+        docScroll: [d.documentElement.scrollWidth, w.innerWidth, d.documentElement.scrollHeight, w.innerHeight]
+      };
+      out[idx] = outInfo;
+    } catch (e) { out[idx] = { case: c, error: String(e) }; }
+    if (++done === CASES.length) window.__audit = out;
+  }, 900);
+  document.body.appendChild(f);
+});
+</script>
+</body></html>
