@@ -1606,6 +1606,17 @@
     }, { once: true });
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
-  else init();
+  function start() {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  }
+
+  if (window.TRACKS && window.TRACKS.length > 0) {
+    start();
+  } else {
+    window.addEventListener("supabaseDataLoaded", start, { once: true });
+  }
 })();
