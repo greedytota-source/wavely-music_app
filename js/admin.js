@@ -1,50 +1,123 @@
-async function loadArtists() {
-  try {
-    const { data } = await supabase.from('artists').select('*').order('name');
-    const select = document.getElementById('artist');
-    select.innerHTML = '<option value="">Select Artist</option>';
-    data?.forEach(a => {
-      const opt = document.createElement('option');
-      opt.value = a.id;
-      opt.textContent = a.name;
-      select.appendChild(opt);
-    });
-  } catch(e) { console.error(e); }
+async function getOrCreateArtist(name) {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Artist is required');
+  
+  const { data: existing } = await supabase
+    .from('artists')
+    .select('id')
+    .ilike('name', trimmed)
+    .limit(1);
+  
+  if (existing && existing.length > 0) {
+    return existing[0].id;
+  }
+  
+  const { data, error } = await supabase
+    .from('artists')
+    .insert([{ name: trimmed }])
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data.id;
 }
-async function loadAlbums() {
-  try {
-    const { data } = await supabase.from('albums').select('*, artists(name)').order('title');
-    const select = document.getElementById('album');
-    select.innerHTML = '<option value="">None (Single)</option>';
-    data?.forEach(a => {
-      const opt = document.createElement('option');
-      opt.value = a.id;
-      opt.textContent = a.artists?.name ? a.title + ' - ' + a.artists.name : a.title;
-      select.appendChild(opt);
-    });
-  } catch(e) { console.error(e); }
+
+async function getOrCreateAlbum(name, artistId) {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  
+  const { data: existing } = await supabase
+    .from('albums')
+    .select('id')
+    .eq('artist_id', artistId)
+    .ilike('title', trimmed)
+    .limit(1);
+  
+  if (existing && existing.length > 0) {
+    return existing[0].id;
+  }
+  
+  const { data, error } = await supabase
+    .from('albums')
+    .insert([{ title: trimmed, artist_id: artistId }])
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data.id;
 }
-function showStatus(m,t){const s=document.getElementById('status');s.textContent=m;s.className=t;}
-document.getElementById('uploadForm').addEventListener('submit', async e=>{
+
+function showStatus(message, type) {
+  const status = document.getElementById('status');
+  status.textContent = message;
+  status.className = type;
+}
+
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const btn=document.getElementById('submitBtn'); btn.disabled=true; btn.textContent='Uploading...';
+  
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Uploading...';
+  showStatus('Starting upload...', 'success');
+  
   try {
-    let artistId=document.getElementById('artist').value;
-    const newArtist=document.getElementById('newArtist').value;
-    if(!artistId&&newArtist.trim()){ const{data}=await supabase.from('artists').insert([{name:newArtist.trim()}]).select(); artistId=data[0].id; }
-    let albumId=document.getElementById('album').value;
-    const newAlbum=document.getElementById('newAlbum').value;
-    if(!albumId&&newAlbum.trim()){ const{data}=await supabase.from('albums').insert([{title:newAlbum.trim(),artist_id:artistId}]).select(); albumId=data[0].id; }
-    const audio=document.getElementById('audioFile').files[0];
-    const audioName=Date.now()+'-'+Math.random().toString(36).slice(2)+'.'+audio.name.split('.').pop();
-    await supabase.storage.from('audio').upload(audioName,audio);
-    const {data:{publicUrl:audioUrl}}=supabase.storage.from('audio').getPublicUrl(audioName);
-    let coverUrl=null;
-    const cover=document.getElementById('coverFile').files[0];
-    if(cover){ const cName=Date.now()+'-'+Math.random().toString(36).slice(2)+'.'+cover.name.split('.').pop(); await supabase.storage.from('covers').upload(cName,cover); const {data:{publicUrl}}=supabase.storage.from('covers').getPublicUrl(cName); coverUrl=publicUrl; }
-    await supabase.from('tracks').insert([{title:document.getElementById('title').value,artist_id:artistId,album_id:albumId||null,duration:parseInt(document.getElementById('duration').value),file_url:audioUrl,cover_url:coverUrl,explicit:document.getElementById('explicit').value==='true'}]);
-    showStatus('Track uploaded successfully!','success'); e.target.reset(); loadArtists(); loadAlbums();
-  }catch(err){ showStatus('Error: '+err.message,'error'); console.error(err); }
-  finally{ btn.disabled=false; btn.textContent='Upload Track'; }
+    const title = document.getElementById('title').value.trim();
+    const artistName = document.getElementById('artistName').value;
+    const albumName = document.getElementById('albumName').value;
+    const duration = parseInt(document.getElementById('duration').value);
+    const explicit = document.getElementById('explicit').value === 'true';
+    const audioFile = document.getElementById('audioFile').files[0];
+    const coverFile = document.getElementById('coverFile').files[0];
+    
+    if (!title) throw new Error('Song title is required');
+    if (!audioFile) throw new Error('Please select an audio file');
+    if (!duration) throw new Error('Duration is required');
+    
+    showStatus('Creating/finding artist...', 'success');
+    const artistId = await getOrCreateArtist(artistName);
+    
+    showStatus('Creating/finding album...', 'success');
+    const albumId = await getOrCreateAlbum(albumName, artistId);
+    
+    showStatus('Uploading audio file...', 'success');
+    const audioExt = audioFile.name.split('.').pop();
+    const audioName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${audioExt}`;
+    const { error: audioError } = await supabase.storage.from('audio').upload(audioName, audioFile);
+    if (audioError) throw audioError;
+    const { data: { publicUrl: audioUrl } } = supabase.storage.from('audio').getPublicUrl(audioName);
+    
+    let coverUrl = null;
+    if (coverFile) {
+      showStatus('Uploading cover art...', 'success');
+      const coverExt = coverFile.name.split('.').pop();
+      const coverName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${coverExt}`;
+      const { error: coverError } = await supabase.storage.from('covers').upload(coverName, coverFile);
+      if (coverError) throw coverError;
+      const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(coverName);
+      coverUrl = publicUrl;
+    }
+    
+    showStatus('Saving track to database...', 'success');
+    const { error: trackError } = await supabase.from('tracks').insert([{
+      title,
+      artist_id: artistId,
+      album_id: albumId,
+      duration,
+      file_url: audioUrl,
+      cover_url: coverUrl,
+      explicit
+    }]);
+    if (trackError) throw trackError;
+    
+    showStatus('Track uploaded successfully!', 'success');
+    document.getElementById('uploadForm').reset();
+    
+  } catch (error) {
+    showStatus('Error: ' + error.message, 'error');
+    console.error(error);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Upload Track';
+  }
 });
-loadArtists(); loadAlbums();
