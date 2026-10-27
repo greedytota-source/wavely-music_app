@@ -1353,7 +1353,8 @@
 
     return `<div class="page legal-page">
       <h1 class="page-title">Copyright &amp; legal</h1>
-      <p class="legal-intro">Aurum is a personal music player. It does not sell music, run ads or offer downloads. This page explains where the audio comes from, who owns it, and how a rights holder can have a catalogue entry removed.</p>
+      ${legalNav("/legal")}
+      <p class="legal-intro">Aurum is a personal music player. It does not sell music or offer downloads, and ads stay off unless the operator switches them on. This page explains where the audio comes from, who owns it, and how a rights holder can have a catalogue entry removed.</p>
       <p class="legal-updated">Last updated: October 2026</p>
 
       <div class="np-card">
@@ -1397,6 +1398,284 @@
         ${contact}
       </div>
     </div>`;
+  }
+
+  /* ── Policy pages ───────────────────────────────────────────
+     Five policy pages share one shell: the same cross-link strip, the same
+     "last updated" stamp and the same contact block, so a reader can move
+     between them without losing their place. The one fact every page has to
+     carry is on the first line - playback is YouTube's, not ours. */
+  const LEGAL_UPDATED = "October 2026";
+
+  const LEGAL_PAGES = [
+    { path: "/privacy", label: "Privacy Center" },
+    { path: "/privacy-policy", label: "Privacy Policy" },
+    { path: "/cookies", label: "Cookies" },
+    { path: "/about-ads", label: "About Ads" },
+    { path: "/legal", label: "Copyright & legal" },
+  ];
+
+  function legalNav(current) {
+    const links = LEGAL_PAGES.map((page) =>
+      page.path === current
+        ? `<span class="legal-nav-here" aria-current="page">${esc(page.label)}</span>`
+        : `<a href="#${page.path}" data-nav="${page.path}">${esc(page.label)}</a>`
+    ).join("");
+    return `<nav class="legal-nav" aria-label="Policy pages">${links}</nav>`;
+  }
+
+  function legalCard(heading, body) {
+    return `<div class="np-card">
+        <div class="np-card-head"><h3>${heading}</h3></div>
+        ${body}
+      </div>`;
+  }
+
+  function legalShell({ current, title, intro, body }) {
+    const contact = LEGAL_CONTACT_EMAIL
+      ? `<a href="mailto:${esc(LEGAL_CONTACT_EMAIL)}">${esc(LEGAL_CONTACT_EMAIL)}</a>`
+      : "the site administrator";
+
+    return `<div class="page legal-page">
+      <h1 class="page-title">${title}</h1>
+      ${legalNav(current)}
+      <p class="legal-intro">${intro}</p>
+      <p class="legal-updated">Last updated: ${LEGAL_UPDATED}</p>
+      ${body}
+      <div class="legal-contact">
+        <span>Questions about this page?</span>
+        ${contact}
+      </div>
+    </div>`;
+  }
+
+  function viewPrivacyCenter() {
+    return legalShell({
+      current: "/privacy",
+      title: "Privacy Center",
+      intro:
+        "Aurum is a player, not a platform. Every song in the catalogue plays through YouTube's embedded player, so YouTube streams the audio and Aurum keeps no copy of it. This page is the short version of what the app stores, what leaves your browser, and what you can switch off.",
+      body: [
+        legalCard(
+          "The short version",
+          `<ul class="legal-list">
+            <li>Every song plays from YouTube. Nothing is hosted, downloaded, copied or re-uploaded here.</li>
+            <li>You can use the whole player without an account. Likes and volume stay in your own browser.</li>
+            <li>An account exists only to sync likes and playlists between devices, and it holds your email address.</li>
+            <li>No analytics, no tracking pixels, no device fingerprinting and no selling of data.</li>
+            <li>Ads are off as shipped and never touch the player.</li>
+          </ul>`
+        ),
+        legalCard(
+          "What is stored, and where",
+          `<ul class="legal-list">
+            <li><strong>In your browser:</strong> liked songs, volume, the video on/off preference and - if you sign in - the session that keeps you signed in.</li>
+            <li><strong>In Aurum's database:</strong> your email address, your likes and your playlists, and only once you sign in. They belong to the account and follow it across devices.</li>
+            <li><strong>Nowhere:</strong> Aurum keeps no listening history. What you play is not uploaded, profiled or used to target anything.</li>
+          </ul>`
+        ),
+        legalCard(
+          "What leaves your browser",
+          `<p class="legal-copy">Four external services can see a request from the player. None of them is sent your likes or playlists.</p>
+          <ul class="legal-list">
+            <li><strong>YouTube</strong> - streams each song inside its own embedded player (<code>youtube-nocookie.com</code>). Pressing play asks YouTube for that video, so YouTube sees your IP address and which track you played.</li>
+            <li><strong>Google Fonts</strong> - serves the two typefaces the interface uses (<code>fonts.googleapis.com</code>).</li>
+            <li><strong>jsDelivr</strong> - serves the Supabase client library that sign-in and the catalogue need.</li>
+            <li><strong>Supabase</strong> - stores accounts, likes and playlists when you sign in.</li>
+            <li><strong>Google AdSense</strong> - only if the operator has turned ads on. As shipped the ad code never loads at all; see <a href="#/about-ads" data-nav="/about-ads">About Ads</a>.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Your controls",
+          `<ul class="legal-list">
+            <li><strong>Use it signed out.</strong> Playback, search and the whole interface work with no account at all.</li>
+            <li><strong>Sign out.</strong> Ends the session on this device. Your likes and playlists stay in the account for next time.</li>
+            <li><strong>Clear site data.</strong> Wipes liked songs, volume and the session from this browser. The account and its playlists stay in the database until you ask for deletion.</li>
+            <li><strong>Export or delete.</strong> Email us and we will send back everything held about the account, or remove the account and everything attached to it.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Read the detail",
+          `<ul class="legal-list">
+            <li><a href="#/privacy-policy" data-nav="/privacy-policy">Privacy Policy</a> - what is collected, who processes it, how long it is kept, and your rights over it.</li>
+            <li><a href="#/cookies" data-nav="/cookies">Cookies</a> - the exact browser storage Aurum writes, key by key, and what third parties may set.</li>
+            <li><a href="#/about-ads" data-nav="/about-ads">About Ads</a> - what the ad slot is, where it is allowed to appear, and how to turn ads off for yourself.</li>
+            <li><a href="#/legal" data-nav="/legal">Copyright &amp; legal</a> - who owns the music and how a rights holder requests a removal.</li>
+          </ul>`
+        ),
+      ].join(""),
+    });
+  }
+
+  function viewPrivacyPolicy() {
+    return legalShell({
+      current: "/privacy-policy",
+      title: "Privacy Policy",
+      intro:
+        "This policy covers the Aurum web player and its admin panel: what is collected when you listen, what is stored when you sign in, who else processes it on our behalf, and how to get it back or have it deleted.",
+      body: [
+        legalCard(
+          "Scope",
+          `<p class="legal-copy">Aurum is an independent, non-commercial music player. It runs no analytics and no advertising network of its own. Every song in the catalogue is played by YouTube's embedded player, so the audio never passes through this site - see <a href="#/legal" data-nav="/legal">Copyright &amp; legal</a> for how that works. This policy applies to the player, the admin panel and the small local server that serves them.</p>`
+        ),
+        legalCard(
+          "What is collected",
+          `<ul class="legal-list">
+            <li><strong>Account email.</strong> Stored when you create an account, and used to identify you and to let you sign in.</li>
+            <li><strong>Password.</strong> Handled by Supabase Auth and kept only as a one-way hash. Aurum never sees it and cannot recover it; a forgotten password is reset, never retrieved.</li>
+            <li><strong>Provider profile, if you sign in with Google or Facebook.</strong> The provider returns an account identifier plus the email, display name and avatar picture it shares. The identifier and email are what identify the account.</li>
+            <li><strong>Your library.</strong> Liked songs, and the playlists you create, with their tracks and their order. Stored against your account so they follow you to another device.</li>
+            <li><strong>Guest preferences.</strong> If you never sign in, your likes and volume are written only to your own browser's local storage. They are merged into the account the first time you sign in on that browser.</li>
+            <li><strong>Video lookups.</strong> When a YouTube link is resolved, the video id is passed from the local server to the public YouTube Data API. The API key stays on the server and is never shipped to the browser.</li>
+          </ul>`
+        ),
+        legalCard(
+          "What is not collected",
+          `<ul class="legal-list">
+            <li>No analytics, page-view counters, session recordings or heatmaps.</li>
+            <li>No advertising or interest profile, and no selling, renting or sharing of data with data brokers.</li>
+            <li>No payment details - there is nothing to buy here, and no checkout exists.</li>
+            <li>No contacts, calendar, files, camera, microphone or precise location.</li>
+            <li>No device fingerprinting, and no cross-site tracking of any kind by Aurum itself.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Who processes it",
+          `<p class="legal-copy">Four services handle data on Aurum's behalf. Each receives only what its job needs.</p>
+          <ul class="legal-list">
+            <li><strong>YouTube (Google)</strong> - receives the request to play a song, and therefore your IP address and the video you asked for. Playback follows YouTube's own Terms of Service and Google's privacy policy. A privacy-enhanced embed domain (<code>youtube-nocookie.com</code>) is used so that no viewing information is stored before you actually press play.</li>
+            <li><strong>Supabase</strong> - hosts the database and the sign-in service. It processes account emails, hashed passwords, likes and playlists.</li>
+            <li><strong>Google Fonts</strong> - serves the interface typefaces, which means Google sees your IP address when the page loads.</li>
+            <li><strong>jsDelivr</strong> - serves the Supabase client library, so it also sees your IP address when the page loads.</li>
+            <li><strong>Google AdSense</strong> - only if ads have been enabled by the operator. As shipped, the ad code never loads, makes no request and sets nothing.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Cookies and local storage",
+          `<p class="legal-copy">Aurum sets no tracking cookies. It uses your browser's local storage for preferences and for the sign-in session, and third parties may set their own storage when you play a YouTube song or when ads are on. Every key is listed on the <a href="#/cookies" data-nav="/cookies">Cookies</a> page.</p>`
+        ),
+        legalCard(
+          "How long it is kept",
+          `<ul class="legal-list">
+            <li><strong>Account data</strong> - until you delete the account. Deleting it removes the email, the likes and the playlists attached to it.</li>
+            <li><strong>Browser preferences</strong> - until you clear site data or the browser evicts them. Signing out clears the session immediately.</li>
+            <li><strong>Access logs</strong> - a server hosting this site may keep short-lived request logs (IP address, URL, time) for security and debugging. They are rotated routinely and are not used to build profiles.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Your rights",
+          `<p class="legal-copy">You can ask for a copy of everything held about your account, have inaccurate details corrected, have the account and its data erased, or object to a particular use. You do not have to give a reason, and asking has no effect on your access to the player, which works without an account anyway.</p>
+          <p class="legal-copy" style="margin-top: 10px;">Send the request from the email address on the account so we can match it. Verified requests are handled within 30 days, and usually much sooner.</p>`
+        ),
+        legalCard(
+          "Security",
+          `<p class="legal-copy">Traffic to Supabase runs over HTTPS using the publishable anon key, which is designed to be public and grants no privileged access on its own. The database enforces row-level security: reads of the public catalogue are open, while every write to artists, albums, tracks and storage is restricted to signed-in accounts with the right policies applied. No secret or service key is ever shipped to the browser, and the YouTube API key stays on the local server that proxies the lookup.</p>`
+        ),
+        legalCard(
+          "Children",
+          `<p class="legal-copy">Aurum is not directed at children, and accounts are not knowingly created for anyone under 13. If you believe a child has signed up, email us and the account will be removed.</p>`
+        ),
+        legalCard(
+          "Where data is processed",
+          `<p class="legal-copy">The services listed above are cloud providers and may process requests outside your own country, including in the United States and the European Union. Each of them publishes its own transfer safeguards and security commitments.</p>`
+        ),
+        legalCard(
+          "Changes to this policy",
+          `<p class="legal-copy">When the app changes what it stores, this page changes with it, and the \"last updated\" date at the top moves. There is no separate mailing list to subscribe to, so this page is always the current version.</p>`
+        ),
+      ].join(""),
+    });
+  }
+
+  function viewCookies() {
+    return legalShell({
+      current: "/cookies",
+      title: "Cookies",
+      intro:
+        "Aurum sets no cookies of its own - not for analytics, not for advertising, not for anything. It uses your browser's local storage for preferences and for staying signed in, and third parties may store their own data when you play a YouTube song or when ads are switched on.",
+      body: [
+        legalCard(
+          "What Aurum writes to your browser",
+          `<p class="legal-copy">These four entries live in this browser only. They are local storage rather than cookies, which means they are never attached to requests automatically and are readable only by this site on this device.</p>
+          <ul class="legal-list">
+            <li><code>wavely.liked.v1</code> - the songs you have liked. Written while you are signed out, and merged into your account the first time you sign in.</li>
+            <li><code>wavely.volume.v1</code> - the player volume, so it returns where you left it.</li>
+            <li><code>wavely.video.v1</code> - your video on/off preference for YouTube songs.</li>
+            <li><code>sb-&lt;project&gt;-auth-token</code> - the sign-in session, written by the Supabase client library only after you sign in. It is what keeps you signed in between visits; signing out removes it.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Third-party storage that can appear",
+          `<ul class="legal-list">
+            <li><strong>YouTube</strong> - songs are embedded through <code>youtube-nocookie.com</code>, YouTube's privacy-enhanced mode, which does not store information about you until you press play. Once playback starts, YouTube may use cookies and local storage exactly as it does on its own site, and a content blocker in your browser prevents that entirely.</li>
+            <li><strong>Google AdSense</strong> - only when ads are enabled by the operator. AdSense uses cookies and local storage for frequency capping and, depending on your settings, for personalising ads. As shipped, the ad script never loads, so nothing is set.</li>
+            <li><strong>Google Fonts and jsDelivr</strong> - these receive a request when the page loads, which reveals your IP address and browser. Neither is asked to store anything by Aurum.</li>
+          </ul>`
+        ),
+        legalCard(
+          "How to control it",
+          `<ul class="legal-list">
+            <li><strong>Browser settings</strong> - block third-party storage, or clear cookies and site data. Clearing site data for this site also signs you out and forgets your likes and volume on this device.</li>
+            <li><strong>A private window</strong> - everything written here is discarded when the window closes.</li>
+            <li><strong>A content blocker</strong> - blocks the YouTube player, the fonts and the ad script. Songs need the YouTube player to play, so blocking it stops playback; blocking ads has no effect because they are off by default.</li>
+            <li><strong>Google ad settings</strong> - if ads are ever enabled, personalised advertising can be switched off at Google's Ad Settings page, independently of this site.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Do Not Track and Global Privacy Control",
+          `<p class="legal-copy">Aurum ignores these signals only because it has nothing to switch off: there is no analytics script and no advertising script running, so no cross-site tracking happens whether or not the signal is sent. If ads are ever enabled, the operator should honour the signal for advertising cookies; until then, the honest answer is that there is nothing to opt out of.</p>`
+        ),
+      ].join(""),
+    });
+  }
+
+  function viewAboutAds() {
+    return legalShell({
+      current: "/about-ads",
+      title: "About Ads",
+      intro:
+        "Ads are wired into Aurum but shipped off. Until the operator pastes a real AdSense client and slot id, no ad script loads, no request is made and no ad markup is written - so this page describes what happens if and when that changes.",
+      body: [
+        legalCard(
+          "How it works as shipped",
+          `<p class="legal-copy">The ad configuration holds all-zero placeholder ids. The player checks them before doing anything, finds them unusable, and stops: no script tag, no network request, no reserved space in the page. The strings that could enable it live in <code>js/ads-config.js</code> and are two values - a <code>ca-pub-...</code> client id and one responsive slot id.</p>`
+        ),
+        legalCard(
+          "Where an ad may appear",
+          `<ul class="legal-list">
+            <li>Home, Search, and album, playlist and artist pages. That is the whole list.</li>
+            <li>Never on the player bar, the now-playing panel or the queue drawer - the rule the ad code exists to keep is that a running song never sees the page move.</li>
+            <li>Never over a control, never an interstitial before playback, never a pop-up, and never an ad that plays sound.</li>
+            <li>Not on your library, your profile, the genre or policy pages, or anywhere in the admin panel.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Why playback stays untouched",
+          `<ul class="legal-list">
+            <li>The ad library is fetched only after the page has finished loading and the browser is idle, so it can never delay the first paint or the first note.</li>
+            <li>The slot reserves its height before any ad exists, so filling it cannot shove a track row out from under your cursor.</li>
+            <li>Each slot is labelled \"Advertisement\" so an ad is never mistaken for part of the catalogue.</li>
+          </ul>`
+        ),
+        legalCard(
+          "What Google would receive",
+          `<ul class="legal-list">
+            <li>The request for the ad code carries your IP address, your browser details and the page you are on - the standard information any ad network sees.</li>
+            <li>Google may use cookies or local storage to cap how often you see an ad and, where permitted, to personalise it. Those choices are governed by your Google ad settings, not by Aurum.</li>
+            <li>Aurum does not send your likes, playlists or listening activity to the ad network. Your library is never used to target an ad.</li>
+            <li>Without advertising, there is no hosted-account tier and no checkout: ads, when on, exist only to cover the cost of running the site.</li>
+          </ul>`
+        ),
+        legalCard(
+          "Turning ads off for yourself",
+          `<ul class="legal-list">
+            <li>Block them in your browser. Aurum's player is unaffected because no ad code is required for playback.</li>
+            <li>Switch off personalised advertising in your Google ad settings; ads would then still appear, but not tailored to you.</li>
+            <li>Use a private window, or clear site data, to drop any ad identifiers already stored.</li>
+          </ul>`
+        ),
+      ].join(""),
+    });
   }
 
   function viewNotFound() {
@@ -1789,6 +2068,18 @@
       const name = decodeURIComponent(path.slice("/genre/".length));
       view.innerHTML = viewGenre(name);
       document.title = (window.GENRE_BY_NAME||{})[name] ? `${name} — Aurum` : "Not found — Aurum";
+    } else if (path === "/privacy") {
+      view.innerHTML = viewPrivacyCenter();
+      document.title = "Privacy Center — Aurum";
+    } else if (path === "/privacy-policy") {
+      view.innerHTML = viewPrivacyPolicy();
+      document.title = "Privacy Policy — Aurum";
+    } else if (path === "/cookies") {
+      view.innerHTML = viewCookies();
+      document.title = "Cookies — Aurum";
+    } else if (path === "/about-ads") {
+      view.innerHTML = viewAboutAds();
+      document.title = "About Ads — Aurum";
     } else if (path === "/legal") {
       view.innerHTML = viewLegal();
       document.title = "Copyright & legal — Aurum";
