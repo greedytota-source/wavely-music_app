@@ -1,0 +1,6 @@
+# Google AdSense seller record for this site (https://adsense.google.com/ads.txt).
+#
+# Replace 0000000000000000 with your publisher id — the digits from your
+# ca-pub-XXXXXXXXXXXXXXXX in js/ads-config.js, written here as pub-… — then
+# re-run the ads.txt check in AdSense. Lines starting with # are ignored.
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

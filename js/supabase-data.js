@@ -9,6 +9,14 @@ window.TRACK_BY_ID = window.TRACK_BY_ID || {};
 
 const byIds = (ids) => (ids || []).map((id) => (window.TRACK_BY_ID || {})[id]).filter(Boolean);
 
+// Tracks added from YouTube store their watch URL in file_url; they play
+// through the embed instead of an <audio> element.
+const YOUTUBE_URL_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i;
+const youTubeIdFromUrl = (url) => {
+  const match = String(url || '').match(YOUTUBE_URL_RE);
+  return match ? match[1] : null;
+};
+
 async function loadSupabaseData() {
   try {
     if (typeof window.supabaseClient === 'undefined') {
@@ -47,6 +55,8 @@ async function loadSupabaseData() {
         .filter(Boolean);
       const names = credits.length ? credits.map((a) => a.name) : [t.artists?.name || 'Unknown Artist'];
       const ids = credits.length ? credits.map((a) => a.id) : t.artist_id ? [t.artist_id] : [];
+      const videoId = youTubeIdFromUrl(t.file_url);
+      const cover = t.cover_url || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null);
 
       return {
         id: t.id,
@@ -57,9 +67,15 @@ async function loadSupabaseData() {
         artist_image: (credits.length ? credits[0].image_url : t.artists?.image_url) || null,
         album: t.albums?.title || '',
         album_id: t.album_id,
+        description: t.description || '',
         duration: t.duration || 0,
-        src: t.file_url,
-        cover: t.cover_url,
+        src: videoId ? null : t.file_url,
+        yt: Boolean(videoId),
+        videoId,
+        embed: videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null,
+        url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : t.file_url,
+        cover,
+        thumb: cover,
         plays: t.plays ? t.plays.toLocaleString() : '0',
         explicit: t.explicit || false
       };
@@ -99,6 +115,40 @@ async function loadSupabaseData() {
       tracks: []
     }));
 
+    // Older rows may have one album per artist even when the title is the
+    // same. The admin now matches album names globally, so fold those
+    // duplicates into the lowest-id album for display and playback.
+    const canonicalAlbumByTitle = new Map();
+    const mergedAlbums = [];
+    window.ALBUMS
+      .slice()
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .forEach((album) => {
+        const key = String(album.title || '').trim().toLowerCase();
+        if (!key) {
+          mergedAlbums.push(album);
+          return;
+        }
+        const keep = canonicalAlbumByTitle.get(key);
+        if (!keep) {
+          canonicalAlbumByTitle.set(key, album);
+          mergedAlbums.push(album);
+          return;
+        }
+        window.TRACKS.forEach((t) => {
+          if (t.album_id === album.id) {
+            t.album_id = keep.id;
+            t.album = keep.title;
+          }
+        });
+        if (!keep.cover_url && album.cover_url) keep.cover_url = album.cover_url;
+        if (!keep.description && album.description) keep.description = album.description;
+        if (!keep.year && album.year) keep.year = album.year;
+      });
+    window.ALBUMS = mergedAlbums.sort((a, b) =>
+      String(a.title || '').localeCompare(String(b.title || ''))
+    );
+
     // Load playlists with tracks
     const { data: playlistsData } = await window.supabaseClient
       .from('playlists')
@@ -115,7 +165,7 @@ async function loadSupabaseData() {
         type: 'Playlist',
         title: p.title,
         user_id: p.user_id || null,
-        owner: p.owner || 'vanimusic',
+        owner: p.owner || 'Aurum',
         description: p.description || '',
         cover_url: p.cover_url,
         seed: p.title,
@@ -132,8 +182,14 @@ async function loadSupabaseData() {
 
     // Hide album/artist rows left behind by uploads that never saved a track,
     // so they don't show up as duplicate entries in the library and shelves.
+    // An artist also counts as used when they are credited via track_artists
+    // but are not the track's primary artist_id.
     const usedAlbumIds = new Set(window.TRACKS.map((t) => t.album_id).filter(Boolean));
-    const usedArtistIds = new Set(window.TRACKS.map((t) => t.artist_id).filter(Boolean));
+    const usedArtistIds = new Set();
+    window.TRACKS.forEach((t) => {
+      if (t.artist_id) usedArtistIds.add(t.artist_id);
+      (t.artist_ids || []).forEach((id) => usedArtistIds.add(id));
+    });
     window.ALBUMS = window.ALBUMS.filter((a) => usedAlbumIds.has(a.id));
     window.ARTISTS = window.ARTISTS.filter((a) => usedArtistIds.has(a.id));
     window.ARTIST_BY_NAME = Object.fromEntries(window.ARTISTS.map((a) => [a.name, a]));

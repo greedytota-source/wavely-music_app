@@ -1,29 +1,36 @@
 /* ═══════════════════════════════════════════════════════════════
-   vanimusic — Spotify-style web player
+   Aurum — noir + gold web player
    Original CSS. Dark theme, three-panel shell, bottom player.
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg: #000;
-  --panel: #121212;
-  --panel-2: #181818;
-  --panel-3: #1f1f1f;
-  --hover: #2a2a2a;
-  --text: #fff;
-  --muted: #b3b3b3;
-  --muted-2: #a7a7a7;
-  --green: #1ed760;
-  --green-bright: #3be477;
+  --bg: #08080a;
+  --panel: #131315;
+  --panel-2: #191a1c;
+  --panel-3: #212226;
+  --hover: #2b2c31;
+  --text: #f7f5f1;
+  --muted: #b9b4ab;
+  --muted-2: #a8a39a;
+  --gold: #d9b26a;
+  --gold-bright: #f0d18a;
+  --gold-dim: #8a7141;
   --border: rgba(255, 255, 255, 0.1);
+  --glass: rgba(255, 255, 255, 0.035);
   --radius: 8px;
   --sidebar-w: 280px;
   --np-w: 308px;
   --player-h: 88px;
   --font: "Figtree", "Circular Std", -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Playfair Display", "Didot", Georgia, serif;
 }
 
 * { box-sizing: border-box; }
+
+/* Components set their own display (flex/grid), which otherwise wins over the
+   user agent's [hidden] rule and leaves "hidden" buttons and modals visible. */
+[hidden] { display: none !important; }
 
 html, body { height: 100%; }
 
@@ -45,7 +52,7 @@ a { color: inherit; text-decoration: none; }
 img { display: block; }
 h1, h2, h3, p { margin: 0; }
 
-::selection { background: var(--green); color: #000; }
+::selection { background: var(--gold); color: #000; }
 
 :focus-visible {
   outline: 2px solid #fff;
@@ -107,7 +114,7 @@ h1, h2, h3, p { margin: 0; }
   gap: 8px;
   flex: none;
   padding-right: 4px;
-  color: var(--green);
+  color: var(--gold);
 }
 .brand-mark { width: 32px; height: 32px; display: block; }
 .brand-mark svg { width: 100%; height: 100%; display: block; }
@@ -589,7 +596,7 @@ a.admin-pill { text-decoration: none; }
   height: 48px;
   border: 0;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--gold);
   color: #000;
   display: grid;
   place-items: center;
@@ -603,7 +610,7 @@ a.admin-pill { text-decoration: none; }
   z-index: 2;
 }
 .play-fab .icon { width: 20px; height: 20px; }
-.play-fab:hover { background: var(--green-bright); transform: scale(1.05); }
+.play-fab:hover { background: var(--gold-bright); transform: scale(1.05); }
 .card:hover .play-fab,
 .card:focus-within .play-fab { opacity: 1; transform: translateY(0); }
 .play-fab.is-playing { opacity: 1; transform: translateY(0); }
@@ -687,13 +694,13 @@ a.admin-pill { text-decoration: none; }
   height: 56px;
   border: 0;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--gold);
   color: #000;
   display: grid;
   place-items: center;
   transition: transform 0.1s ease, background 0.15s ease;
 }
-.big-play:hover { background: var(--green-bright); transform: scale(1.04); }
+.big-play:hover { background: var(--gold-bright); transform: scale(1.04); }
 .big-play:active { transform: scale(0.98); }
 .big-play .icon { width: 24px; height: 24px; }
 .pl-actions .icon-btn.plain { color: var(--muted); background: none; }
@@ -722,7 +729,7 @@ a.admin-pill { text-decoration: none; }
   font-weight: 700;
 }
 .follow-btn:hover { border-color: #fff; transform: scale(1.02); }
-.follow-btn.following { border-color: var(--green); color: var(--green); }
+.follow-btn.following { border-color: var(--gold); color: var(--gold); }
 
 /* ── Track table ──────────────────────────────────────────── */
 .tracks { padding: 8px 24px 40px; }
@@ -778,7 +785,7 @@ a.admin-pill { text-decoration: none; }
 .track-row.active .idx { display: none; }
 .track-row.active .row-play { display: none; }
 .track-row.active .eq { display: inline-flex; }
-.track-row.active .track-name { color: var(--green); }
+.track-row.active .track-name { color: var(--gold); }
 
 .eq {
   display: inline-flex;
@@ -789,7 +796,7 @@ a.admin-pill { text-decoration: none; }
 }
 .eq i {
   width: 3px;
-  background: var(--green);
+  background: var(--gold);
   border-radius: 1px;
   animation: eq 0.9s ease-in-out infinite;
 }
@@ -874,7 +881,7 @@ a.admin-pill { text-decoration: none; }
 }
 .track-row:hover .row-like { opacity: 1; }
 .row-like:hover { color: #fff; }
-.row-like.liked { opacity: 1; color: var(--green); }
+.row-like.liked { opacity: 1; color: var(--gold); }
 .row-like.liked .icon { fill: currentColor; }
 .row-like .icon { width: 16px; height: 16px; }
 
@@ -1038,7 +1045,7 @@ a.admin-pill { text-decoration: none; }
 .song-row-artist { color: var(--muted); font-size: 13px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .song-row-dur { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; padding-right: 8px; }
 .song-row .eq { margin-right: 4px; }
-.song-row.playing .song-row-title { color: var(--green); }
+.song-row.playing .song-row-title { color: var(--gold); }
 
 .empty-state {
   display: flex;
@@ -1172,6 +1179,135 @@ a.admin-pill { text-decoration: none; }
 .credit-row .role { color: var(--muted); }
 .credit-row .name { color: #fff; text-align: right; }
 
+/* Collapsible song details (YouTube songs). Collapsed by default so the
+   panel stays quiet; the one-line source note below keeps attribution and
+   ownership visible without shouting. */
+.np-details {
+  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  padding: 12px 2px 0;
+  margin-top: 18px;
+}
+.np-details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.np-details-toggle:hover { color: #fff; }
+.np-details-chev {
+  display: inline-flex;
+  transition: transform 0.18s ease;
+}
+.np-details-chev.open { transform: rotate(90deg); }
+.np-details-body { padding-top: 12px; }
+.np-details-body[hidden] { display: none; }
+.np-source {
+  margin-top: 10px;
+  color: var(--muted-2);
+  font-size: 10.5px;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+.np-source .np-legal-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.np-yt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--gold-bright);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.np-yt-link:hover { text-decoration: underline; }
+.np-description {
+  margin-top: 10px;
+  color: var(--muted-2);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-line;
+  max-height: 180px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.np-legal {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.np-legal-link { color: var(--gold-bright); text-decoration: none; }
+.np-legal-link:hover { text-decoration: underline; }
+.legal-page .np-card { margin-top: 16px; }
+.legal-intro {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 72ch;
+}
+.legal-updated {
+  margin-top: 10px;
+  color: var(--muted-2);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.legal-copy { color: var(--muted); font-size: 13px; line-height: 1.65; }
+.legal-copy a { color: var(--gold-bright); }
+.legal-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.legal-list li { margin-bottom: 4px; }
+.legal-contact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid rgba(217, 178, 106, 0.28);
+  border-radius: 8px;
+  background: rgba(217, 178, 106, 0.06);
+}
+.legal-contact span {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.legal-contact a {
+  color: var(--gold-bright);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.legal-contact a:hover { text-decoration: underline; }
+
 .np-next { margin-top: 22px; }
 .np-next h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
 .next-row {
@@ -1245,7 +1381,7 @@ a.admin-pill { text-decoration: none; }
   cursor: pointer;
 }
 .queue-item:hover { background: rgba(255, 255, 255, 0.08); }
-.queue-item.active .queue-item-title { color: var(--green); }
+.queue-item.active .queue-item-title { color: var(--gold); }
 .queue-item img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; flex: none; }
 .queue-item-meta { min-width: 0; }
 .queue-item-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1297,10 +1433,10 @@ a.admin-pill { text-decoration: none; }
 }
 .bar-artist:hover { color: #fff; text-decoration: underline; cursor: pointer; }
 .like-btn { color: var(--muted); flex: none; }
-.like-btn.liked { color: var(--green); }
+.like-btn.liked { color: var(--gold); }
 .like-btn.liked .icon { fill: currentColor; }
 
-.icon-btn.liked { color: var(--green); }
+.icon-btn.liked { color: var(--gold); }
 .icon-btn.liked .icon { fill: currentColor; }
 
 .player-center {
@@ -1325,7 +1461,7 @@ a.admin-pill { text-decoration: none; }
 }
 .ctrl:hover { color: #fff; }
 .ctrl:active { transform: scale(0.92); }
-.ctrl.active { color: var(--green); }
+.ctrl.active { color: var(--gold); }
 .ctrl.active::after {
   content: "";
   position: absolute;
@@ -1335,7 +1471,7 @@ a.admin-pill { text-decoration: none; }
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--gold);
 }
 .ctrl .icon { width: 20px; height: 20px; }
 #prevBtn .icon, #nextBtn .icon { width: 22px; height: 22px; }
@@ -1389,7 +1525,7 @@ a.admin-pill { text-decoration: none; }
   background: #fff;
   border-radius: 2px;
 }
-.bar:hover .bar-fill { background: var(--green); }
+.bar:hover .bar-fill { background: var(--gold); }
 .bar-knob {
   position: absolute;
   top: 50%;
@@ -1416,7 +1552,7 @@ a.admin-pill { text-decoration: none; }
 }
 .player-right .icon-btn { color: var(--muted); }
 .player-right .icon-btn:hover { color: #fff; }
-.player-right .icon-btn.active { color: var(--green); }
+.player-right .icon-btn.active { color: var(--gold); }
 
 .volume { display: flex; align-items: center; gap: 2px; }
 .volume .bar { width: 94px; flex: none; margin-right: 8px; }
@@ -1528,6 +1664,10 @@ a.admin-pill { text-decoration: none; }
   .volume .bar { width: 70px; }
   .lib-table-head, .lib-row { grid-template-columns: minmax(0, 1fr) 110px; }
   .lib-table-head .col-added, .lib-row .lib-added { display: none; }
+  /* Not enough room for the Premium/Install pills next to search. */
+  .topbar-actions .pill:not(.admin-pill):not(#authBtn) { display: none; }
+  .topbar-actions .admin-pill span { display: none; }
+  .topbar-actions .admin-pill { padding: 0 6px; }
 }
 
 @media (max-width: 760px) {
@@ -1546,8 +1686,12 @@ a.admin-pill { text-decoration: none; }
   .topbar-actions { gap: 6px; }
   .avatar { width: 28px; height: 28px; }
 
-  .body { grid-template-columns: minmax(0, 1fr); padding: 0; gap: 0; }
+  /* The np-open rule above has higher specificity, and the class survives a
+     desktop window being narrowed — reset the columns for both cases. */
+  .body,
+  .app.np-open .body { grid-template-columns: minmax(0, 1fr); padding: 0; gap: 0; }
   .sidebar { display: none; }
+  .now-playing { display: none; }
   .main { border-radius: 0; }
   .home { padding: 4px 16px 32px; }
   .greeting { margin: 12px 0 14px; }
@@ -1600,7 +1744,7 @@ a.admin-pill { text-decoration: none; }
   .mobile-nav { display: flex; }
 
   .player {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(120px, auto);
     gap: 8px;
     padding: 0 10px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -1608,11 +1752,13 @@ a.admin-pill { text-decoration: none; }
   .bar-art { width: 44px; height: 44px; }
   .bar-title { font-size: 13px; }
   .bar-artist { font-size: 11px; }
-  .player-center { flex-direction: row; justify-content: flex-end; gap: 0; max-width: none; }
-  .progress-row { display: none; }
+  .player-center { flex-direction: column; align-items: center; gap: 6px; max-width: none; width: 100%; }
+  .progress-row { display: flex; width: 100%; gap: 10px; }
   .controls { gap: 6px; }
-  #shuffleBtn, #repeatBtn, #prevBtn, #nextBtn { display: none; }
-  .player-right { display: none; }
+  #shuffleBtn, #repeatBtn { display: none; }
+  #prevBtn, #nextBtn { display: grid; }
+  .player-right { display: flex; gap: 6px; align-items: center; }
+  .volume .bar { width: 60px; margin-right: 4px; }
   .like-btn { margin-left: auto; }
   .toasts { bottom: calc(var(--player-h) + 68px); right: 12px; left: 12px; align-items: stretch; }
   .toast { max-width: none; }
@@ -1763,13 +1909,13 @@ a.admin-pill { text-decoration: none; }
   margin-top: 20px;
   border: 0;
   border-radius: 999px;
-  background: var(--green);
+  background: var(--gold);
   color: #000;
   font-weight: 800;
   font-size: 14px;
   cursor: pointer;
 }
-.auth-submit:hover { background: var(--green-bright); }
+.auth-submit:hover { background: var(--gold-bright); }
 .auth-submit:disabled { opacity: 0.6; cursor: progress; }
 .auth-switch { margin: 18px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
 .auth-switch button {
@@ -1794,7 +1940,7 @@ a.admin-pill { text-decoration: none; }
 .auth-google:disabled { opacity: 0.6; cursor: progress; }
 .auth-msg { margin: 12px 0 0; min-height: 18px; font-size: 13px; }
 .auth-msg.error { color: #ff6b6b; }
-.auth-msg.success { color: var(--green); }
+.auth-msg.success { color: var(--gold); }
 .menu-user { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; }
 .menu-user strong { font-size: 13px; }
 .menu-user span { font-size: 11px; color: var(--muted); }
@@ -1839,13 +1985,13 @@ a.admin-pill { text-decoration: none; }
   align-items: center;
   gap: 20px;
   padding: 28px 24px;
-  background: linear-gradient(180deg, rgba(30, 215, 96, 0.22), transparent);
+  background: linear-gradient(180deg, rgba(217, 178, 106, 0.22), transparent);
 }
 .profile-avatar {
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--gold);
   color: #000;
   display: grid;
   place-items: center;
@@ -1860,3 +2006,322 @@ a.admin-pill { text-decoration: none; }
 .profile-section:last-child { padding-bottom: 40px; }
 .profile-section h2 { margin: 0 0 14px; font-size: 20px; }
 .profile-empty { color: var(--muted); font-size: 14px; padding: 8px 0 16px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   Aurum — premium noir + gold layer
+   Display type, glass surfaces, gold controls, Mood Radio,
+   YouTube search results.
+   ═══════════════════════════════════════════════════════════════ */
+
+:focus-visible { outline-color: var(--gold); }
+
+/* Display typography — serif headlines against the sans UI */
+.brand-name,
+.greeting,
+.page-title,
+.shelf-title,
+.pl-title,
+.search-heading,
+.auth-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.brand-name { font-size: 23px; }
+
+.greeting {
+  background: linear-gradient(92deg, #fff 10%, var(--gold-bright) 55%, var(--gold) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Glass surfaces */
+.topbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent);
+  border-radius: 14px;
+}
+.sidebar .panel,
+.now-playing,
+.queue-drawer {
+  background: linear-gradient(180deg, var(--glass), transparent 140px), var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.player {
+  background: linear-gradient(180deg, transparent, rgba(217, 178, 106, 0.05));
+}
+
+/* Gold controls */
+.play-btn,
+.play-fab,
+.big-play {
+  background: linear-gradient(145deg, var(--gold-bright), var(--gold) 62%, #b8904b);
+  color: #0a0a0b;
+}
+.play-btn:hover,
+.play-fab:hover,
+.big-play:hover { filter: brightness(1.07); }
+
+/* ── Mood Radio ─────────────────────────────────────────────── */
+.shelf-note {
+  color: var(--muted);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  margin-left: 10px;
+}
+.shelf-head .shelf-title + .shelf-note { align-self: center; }
+/* ── Video ON/OFF mini player ─────────────────────────────── */
+/* #ytWrap is our own wrapper div; YouTube replaces the #ytHost div inside
+   it with an iframe. Overlays must live on the wrapper — pseudo-elements
+   never render on an iframe element itself. */
+#ytWrap {
+  position: fixed;
+  right: 18px;
+  bottom: 112px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+  z-index: 60;
+}
+body.video-on #ytWrap {
+  width: 300px;
+  height: 169px;
+  opacity: 1;
+  pointer-events: auto;
+  background: #000;
+  border: 1px solid rgba(217, 178, 106, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+#ytWrap > iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
+
+/* YouTube ka title bar (top) aur "Watch on YouTube" logo (bottom-right)
+   params se band nahi hota. Black gradient patches cover hai acche nahi
+   lagte the, isliye asli fix: iframe ko symmetric bada karke poora
+   overflow crop — YouTube branding edges frame ke bahar chal jaate hain
+   aur kisi overlay ki zaroorat hi nahi. Width-height dono same % badhte
+   hain, isliye 16:9 ratio kharab nahi hota; video halka zoom hota hai. */
+body.video-on #ytWrap > iframe {
+  position: absolute;
+  top: -25%;
+  left: -25%;
+  width: 150% !important;
+  height: 150% !important;
+}
+
+/* Paused (ya video start hone se pehle) par YouTube ka bada center play
+   button dikhta hai — usko ek chhota black chip cover karta hai.
+   Playing par chip gayab ho jaata hai. */
+.yt-center-cover {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96px;
+  height: 56px;
+  margin: -28px 0 0 -48px;
+  border-radius: 10px;
+  background: #000;
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+body.video-on.video-paused .yt-center-cover { opacity: 1; }
+
+#videoBtn.active { color: var(--gold); }
+
+@media (max-width: 720px) {
+  body.video-on #ytWrap {
+    width: min(300px, calc(100vw - 32px));
+    height: calc(min(300px, calc(100vw - 32px)) * 0.5625);
+    bottom: 92px;
+  }
+}
+
+/* ── Category browse (YouTube-powered genre pages) ────────── */
+.cat-glyph {
+  position: absolute;
+  right: 10px;
+  bottom: -12px;
+  font-size: 76px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.2);
+  transform: rotate(-8deg);
+  pointer-events: none;
+  transition: color 0.18s ease;
+}
+.genre.cat:hover .cat-glyph,
+.genre.cat:focus-visible .cat-glyph { color: rgba(255, 255, 255, 0.42); }
+
+.cat-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--tint, #232323);
+}
+.cat-cover-glyph {
+  font-size: 88px;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.mood-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 14px;
+}
+.mood-card {
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 134px;
+  padding: 18px 16px 16px;
+  color: var(--text);
+  background: linear-gradient(150deg, #1c1c20, #111113);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.mood-card::before {
+  content: "";
+  position: absolute;
+  top: -54px;
+  right: -46px;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--mood-c, rgba(217, 178, 106, 0.6)), transparent 66%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+.mood-card:hover,
+.mood-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(217, 178, 106, 0.45);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+}
+.mood-grid .mood-card:nth-child(2) { --mood-c: rgba(150, 190, 220, 0.5); }
+.mood-grid .mood-card:nth-child(3) { --mood-c: rgba(224, 128, 96, 0.5); }
+.mood-grid .mood-card:nth-child(4) { --mood-c: rgba(120, 200, 170, 0.45); }
+.mood-grid .mood-card:nth-child(5) { --mood-c: rgba(170, 140, 220, 0.5); }
+.mood-grid .mood-card:nth-child(6) { --mood-c: rgba(120, 140, 200, 0.5); }
+
+.mood-glyph { font-size: 28px; line-height: 1; position: relative; }
+.mood-label {
+  position: relative;
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+}
+.mood-hint { position: relative; color: var(--muted); font-size: 12.5px; }
+.mood-play {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, var(--gold-bright), var(--gold));
+  color: #0a0a0b;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.mood-play .icon { width: 15px; height: 15px; }
+.mood-card:hover .mood-play,
+.mood-card:focus-visible .mood-play { opacity: 1; transform: none; }
+
+/* ── YouTube results ────────────────────────────────────────── */
+.yt-list { display: flex; flex-direction: column; }
+.yt-status {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 16px 4px;
+}
+.yt-status.loading::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 9px;
+  vertical-align: -2px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: yt-spin 0.7s linear infinite;
+}
+@keyframes yt-spin { to { transform: rotate(360deg); } }
+.yt-status.error { color: var(--gold-bright); }
+.yt-badge {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid rgba(217, 178, 106, 0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 10px;
+}
+.song-row .yt-badge { display: none; }
+@media (min-width: 720px) { .song-row .yt-badge { display: inline-block; } }
+
+/* ═══════════════════════════════════════════════════════════════
+   Ad slots — Google AdSense (js/ads-config.js + js/ads.js)
+
+   The box reserves its height before the ad script exists, so a slot
+   appearing or refilling never shifts the page while a song is playing.
+   The label stays at opacity 0 until an ad actually fills, so an empty
+   slot reads as quiet space rather than a broken unit. The player bar,
+   the now-playing panel and the queue drawer are intentionally ad-free.
+   ═══════════════════════════════════════════════════════════════ */
+
+.ad-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 970px;
+  /* Reserved up front: label + gap + padding + a 300×250 creative, so the
+     usual ad lands inside the space instead of pushing content down. */
+  min-height: 300px;
+  margin: 36px auto 16px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.ad-slot__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.ad-slot[data-filled] {
+  border-color: var(--border);
+  background: var(--glass);
+}
+.ad-slot[data-filled] .ad-slot__label { opacity: 1; }
+.ad-slot ins.adsbygoogle { display: block; width: 100%; }
+
+@media (max-width: 767px) {
+  .ad-slot { min-height: 160px; margin: 26px auto 12px; padding: 10px 6px; }
+}

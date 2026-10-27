@@ -1,0 +1,8 @@
+# Never commit your YouTube API key
+api_key.txt
+
+# Local runtime / editor noise
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

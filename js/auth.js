@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   vanimusic — accounts
+   Aurum — accounts
    Supabase Auth with Google OAuth and email/password. Exposes
    window.WavelyAuth so the player can react to sign in / sign out.
    ═══════════════════════════════════════════════════════════════ */
@@ -169,7 +169,7 @@
     const switchBtn = $("#authSwitch");
     const password = $("#authPassword");
 
-    if (title) title.textContent = signup ? "Create your account" : "Log in to vanimusic";
+    if (title) title.textContent = signup ? "Create your account" : "Log in to Aurum";
     if (submit) submit.textContent = signup ? "Sign up" : "Log in";
     if (switchText) switchText.textContent = signup ? "Already have an account?" : "New here?";
     if (switchBtn) switchBtn.textContent = signup ? "Log in" : "Create an account";
@@ -178,21 +178,34 @@
     applyProviderUI();
   }
 
-  function openModal(nextMode = "login") {
+  function openModal(nextMode = "login", opener = null) {
     const modal = $("#authModal");
     if (!modal) return;
     setMode(nextMode);
     setMessage("");
-    modal.hidden = false;
-    document.body.classList.add("modal-open");
-    setTimeout(() => $("#authEmail")?.focus(), 40);
+
+    if (window.ModalFocus) {
+      window.ModalFocus.open(modal, {
+        initialFocus: () => $("#authEmail"),
+        onClose: closeModal,
+        returnFocus: opener
+      });
+    } else {
+      modal.hidden = false;
+      document.body.classList.add("modal-open");
+      setTimeout(() => $("#authEmail")?.focus(), 40);
+    }
   }
 
   function closeModal() {
     const modal = $("#authModal");
     if (!modal) return;
-    modal.hidden = true;
-    document.body.classList.remove("modal-open");
+    if (window.ModalFocus) {
+      window.ModalFocus.close(modal);
+    } else {
+      modal.hidden = true;
+      document.body.classList.remove("modal-open");
+    }
   }
 
   async function signIn(email, password) {
@@ -266,8 +279,10 @@
   }
 
   function bind() {
-    $("#authBtn")?.addEventListener("click", () => openModal("login"));
+    $("#authBtn")?.addEventListener("click", (event) => openModal("login", event.currentTarget));
     $("#authClose")?.addEventListener("click", closeModal);
+    // Escape, Tab trapping and focus restore live in js/modal-focus.js.
+
     $("#authModal")?.addEventListener("click", (event) => {
       if (event.target.id === "authModal") closeModal();
     });
@@ -302,9 +317,6 @@
       }
     });
 
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeModal();
-    });
   }
 
   Object.assign(auth, {
@@ -360,8 +372,12 @@
     const qs = search.toString();
     const rest = hashParams.toString();
     const nextHash = rest ? "#" + rest : route;
+    // The OAuth round-trip lands on "#access_token=...", which the router would
+    // read as an unknown page. Remember that so we can re-render once it is gone.
+    const hashWasAuthJunk = Boolean(hash) && !route;
 
     history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + nextHash);
+    if (hashWasAuthJunk) window.dispatchEvent(new HashChangeEvent("hashchange"));
   }
 
   if (!client) {

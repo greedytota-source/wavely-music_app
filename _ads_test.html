@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>pending</title>
+<link rel="stylesheet" href="css/styles.css">
+</head><body>
+<div class="view" id="view"></div>
+<script>
+window.AdsConfig = { client: "ca-pub-1234567890123456", slots: { content: "1234567890" } };
+</script>
+<script src="js/ads.js"></script>
+<script>
+const results = [];
+const ok = (n, c, e) => results.push({ name: n, pass: !!c, extra: e === undefined ? "" : String(e) });
+const view = document.getElementById("view");
+const tick = (ms) => new Promise((r) => setTimeout(r, ms));
+
+(async () => {
+  try {
+    await tick(300);
+    let box = view.querySelector(".ad-slot");
+    ok("slot appended on / (default route)", !!box);
+    const css = box ? getComputedStyle(box) : null;
+    const reserved = css ? parseInt(css.minHeight, 10) : 0;
+    const expect = window.innerWidth <= 767 ? 160 : 300;
+    ok("min-height reserved in CSS", reserved === expect, "min-height=" + reserved + "px expected=" + expect + "px (vw=" + window.innerWidth + ")");
+    const h = box ? Math.round(box.getBoundingClientRect().height) : 0;
+    ok("box occupies at least the reserved space", h >= reserved, h + "px");
+
+    view.innerHTML = '<div class="home">shelves</div>';
+    await tick(150);
+    ok("slot re-appended after view re-render", !!view.querySelector(".ad-slot"));
+
+    location.hash = "#/library";
+    view.innerHTML = '<div class="lib">library</div>';
+    await tick(150);
+    ok("no slot on /library", !view.querySelector(".ad-slot"));
+
+    location.hash = "#/legal";
+    view.innerHTML = '<div class="legal">legal</div>';
+    await tick(150);
+    ok("no slot on /legal", !view.querySelector(".ad-slot"));
+
+    location.hash = "#/playlist/discover";
+    view.innerHTML = '<div class="pl">playlist</div>';
+    await tick(150);
+    ok("slot on /playlist/discover", !!view.querySelector(".ad-slot"));
+
+    location.hash = "#/artist/Neha%20Kakkar";
+    view.innerHTML = '<div class="artist">artist</div>';
+    await tick(150);
+    ok("slot on /artist/:name", !!view.querySelector(".ad-slot"));
+
+    location.hash = "#/search?q=x";
+    view.innerHTML = '<div class="search">search</div>';
+    await tick(150);
+    ok("slot on /search", !!view.querySelector(".ad-slot"));
+
+    await tick(5000);
+    ok("ad library script injected", !!document.querySelector('script[src*="googlesyndication"]'),
+       (document.querySelector('script[src*="googlesyndication"]') || {}).src || "missing");
+    box = view.querySelector(".ad-slot");
+    ok("slot marked filled", box && box.dataset.filled === "true", box && box.dataset.filled);
+    ok("ins.adsbygoogle present", !!view.querySelector("ins.adsbygoogle"));
+    ok("label present (opacity-gated)", !!view.querySelector(".ad-slot__label"));
+    ok("label aria on aside", box && box.getAttribute("aria-label") === "Advertisement");
+    ok("slot outside player shell", !document.querySelector(".player .ad-slot") && !document.querySelector(".now-playing .ad-slot"));
+
+    const h2 = Math.round(box.getBoundingClientRect().height);
+    ok("height not below reservation after fill", h2 >= reserved, h2 + "px vs " + reserved + "px");
+
+    const failed = results.filter((r) => !r.pass);
+    document.getElementById("out").textContent = JSON.stringify({ total: results.length, failed: failed.length, failures: failed, all: results }, null, 2);
+    document.title = failed.length ? "FAIL" : "PASS";
+  } catch (e) {
+    results.push({ name: "EXCEPTION", pass: false, extra: String((e && e.stack) || e) });
+    document.getElementById("out").textContent = JSON.stringify({ total: results.length, failed: 1, failures: results.filter(r => !r.pass) }, null, 2);
+    document.title = "ERROR";
+  }
+})();
+</script>
+<pre id="out">running</pre>
+</body></html>

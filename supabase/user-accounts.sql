@@ -9,16 +9,22 @@
 alter table public.playlists
   add column if not exists user_id uuid references auth.users(id) on delete cascade;
 
--- 2) Likes
+-- 2) Likes — track_id is TEXT, not uuid: YouTube-sourced songs live in
+--    the app as "yt:VIDEO_ID", and they deserve likes too.
 create table if not exists public.likes (
   user_id    uuid not null references auth.users(id) on delete cascade,
-  track_id   uuid not null references public.tracks(id) on delete cascade,
+  track_id   text not null,
   created_at timestamptz not null default now(),
   primary key (user_id, track_id)
 );
 
-alter table public.likes enable row level security;
+-- Migration for installs that already ran the pre-text version:
+alter table public.likes
+  drop constraint if exists likes_track_id_fkey;
+alter table public.likes
+  alter column track_id type text using track_id::text;
 
+alter table public.likes enable row level security;
 -- 3) Playlists: public ones readable by all, personal ones only by owner
 drop policy if exists "public read playlists" on public.playlists;
 drop policy if exists "admin write playlists" on public.playlists;

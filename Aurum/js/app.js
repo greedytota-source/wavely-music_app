@@ -1,0 +1,2520 @@
+/* ═══════════════════════════════════════════════════════════════
+   Aurum — app logic
+   Client-side router, catalogue rendering, playback simulation
+   (optionally real audio when a track defines `src`).
+   ═══════════════════════════════════════════════════════════════ */
+
+(() => {
+  "use strict";
+
+  /* Address shown on the Copyright & legal page for removal requests.
+     Set this to the site owner's contact address before publishing. */
+  const LEGAL_CONTACT_EMAIL = "bhagatdeveloper@zohomail.in";
+
+  // Ensure globals exist from Supabase or fallback
+  if (typeof window.TRACKS === 'undefined') window.TRACKS = [];
+  if (typeof window.PLAYLISTS === 'undefined') window.PLAYLISTS = [];
+  if (typeof window.ARTISTS === 'undefined') window.ARTISTS = [];
+  if (typeof window.ALBUMS === 'undefined') window.ALBUMS = [];
+  if (typeof window.ALL_ITEMS === 'undefined') window.ALL_ITEMS = [];
+  if (typeof window.ITEM_BY_ID === 'undefined') window.ITEM_BY_ID = {};
+  if (typeof window.ARTIST_BY_NAME === 'undefined') window.ARTIST_BY_NAME = {};
+  if (typeof window.TRACK_BY_ID === 'undefined') window.TRACK_BY_ID = {};
+  if (typeof window.GENRE_TRACKS === 'undefined') window.GENRE_TRACKS = {};
+  if (typeof window.GENRE_BY_NAME === 'undefined') window.GENRE_BY_NAME = {};
+  if (typeof window.byIds === 'undefined') window.byIds = (ids) => (ids || []).map((id) => (window.TRACK_BY_ID || {})[id]).filter(Boolean);
+
+  /* Deterministic hash shared by the artwork and tint generators. It used to
+     live in js/data.js, which the Supabase build no longer loads. */
+  function hashString(str) {
+    const s = String(str ?? "");
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h);
+  }
+
+  /* Browse genres are optional: without a genre source the search page simply
+     has nothing to browse. */
+  const liveGenres = () => (Array.isArray(window.GENRES) ? window.GENRES : []);
+
+  /* ── Icons ─────────────────────────────────────────────────── */
+  const ICONS = {
+    home: '<path d="M3 10.8 12 3.2l9 7.6V20a1 1 0 0 1-1 1h-5.3v-6.4H9.3V21H4a1 1 0 0 1-1-1Z"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4-4"/>',
+    library:
+      '<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10.5" y="4" width="5" height="16" rx="1"/><path d="m18 5.4 3 14.1"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    "chevron-left": '<path d="m15 5-7 7 7 7"/>',
+    "chevron-right": '<path d="m9 5 7 7-7 7"/>',
+    "arrow-right": '<path d="M4 12h15"/><path d="m13 6 6 6-6 6"/>',
+    download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/>',
+    bell: '<path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7"/><path d="M10.3 21a2 2 0 0 0 3.4 0"/>',
+    globe:
+      '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.4 4 5.6 4 9s-1.4 6.6-4 9c-2.6-2.4-4-5.6-4-9s1.4-6.6 4-9Z"/>',
+    play: '<path d="M8 5.1v13.8a1 1 0 0 0 1.53.85l11-6.9a1 1 0 0 0 0-1.7l-11-6.9A1 1 0 0 0 8 5.1Z" style="fill:currentColor;stroke:none"/>',
+    pause:
+      '<rect x="6.2" y="4.5" width="4" height="15" rx="1.2" style="fill:currentColor;stroke:none"/><rect x="13.8" y="4.5" width="4" height="15" rx="1.2" style="fill:currentColor;stroke:none"/>',
+    prev: '<path d="M18 5.4v13.2a1 1 0 0 1-1.55.84L8 13.4V18a1 1 0 0 1-2 0V6a1 1 0 0 1 2 0v4.6l8.45-6.04A1 1 0 0 1 18 5.4Z" style="fill:currentColor;stroke:none"/>',
+    next: '<path d="M6 5.4v13.2a1 1 0 0 0 1.55.84L16 13.4V18a1 1 0 0 0 2 0V6a1 1 0 0 0-2 0v4.6L7.55 4.56A1 1 0 0 0 6 5.4Z" style="fill:currentColor;stroke:none"/>',
+    shuffle:
+      '<path d="M3 6h3.2c1.4 0 2.7.7 3.5 1.8l4.6 6.4c.8 1.1 2.1 1.8 3.5 1.8H21"/><path d="m18 3 3 3-3 3"/><path d="M3 18h3.2c1.4 0 2.7-.7 3.5-1.8l.9-1.2"/><path d="m18 15 3 3-3 3"/><path d="m14.4 9.4.9-1.4C16.1 6.9 17.4 6 18.8 6H21"/>',
+    repeat:
+      '<path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+    heart:
+      '<path d="M12 20.7 4.8 13.5a4.9 4.9 0 0 1 0-7 5 5 0 0 1 7 0l.2.2.2-.2a5 5 0 0 1 7 0 4.9 4.9 0 0 1 0 7Z"/>',
+    queue:
+      '<path d="M4 6h11M4 12h11M4 18h7"/><path d="m16 13 5 3.5-5 3.5z" style="fill:currentColor;stroke:none"/>',
+    devices:
+      '<rect x="2" y="4" width="14" height="10" rx="1.6"/><path d="M5.5 18h7"/><rect x="17" y="10" width="5" height="10" rx="1.2"/>',
+    video:
+      '<rect x="2.5" y="6" width="13.5" height="12" rx="2"/><path d="m16 10.5 5.5-3v9l-5.5-3z"/>',
+    volume:
+      '<path d="M11 5 6.6 9H3v6h3.6L11 19z"/><path d="M15.2 8.6a5 5 0 0 1 0 6.8"/><path d="M18.2 6a9 9 0 0 1 0 12"/>',
+    mute:
+      '<path d="M11 5 6.6 9H3v6h3.6L11 19z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>',
+    panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+    fullscreen:
+      '<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>',
+    mic:
+      '<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/>',
+    more:
+      '<circle cx="5" cy="12" r="1.5" style="fill:currentColor;stroke:none"/><circle cx="12" cy="12" r="1.5" style="fill:currentColor;stroke:none"/><circle cx="19" cy="12" r="1.5" style="fill:currentColor;stroke:none"/>',
+    check: '<path d="m4.5 12.5 5 5L20 6.5"/>',
+    x: '<path d="m6 6 12 12M18 6 6 18"/>',
+    music:
+      '<path d="M9 18V6l11-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>'
+  };
+
+  const svg = (name, size = "md", extra = "") =>
+    `<svg class="icon ${size === "sm" ? "icon-sm" : ""} ${extra}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  const icon = svg;
+
+  function hydrateIcons(root = document) {
+    root.querySelectorAll("i[data-icon]").forEach((el) => {
+      const size = el.dataset.size === "sm" ? "sm" : "md";
+      const tmp = document.createElement("div");
+      tmp.innerHTML = svg(el.dataset.icon, size, el.className);
+      const node = tmp.firstElementChild;
+      if (node) el.replaceWith(node);
+    });
+  }
+
+  /* ── Helpers ───────────────────────────────────────────────── */
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+  const esc = (s) =>
+    String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  const fmtTime = (sec) => {
+    if (!Number.isFinite(sec) || sec < 0) sec = 0;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+  const fmtLong = (sec) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.round((sec % 3600) / 60);
+    if (h > 0) return `${h} hr ${m} min`;
+    return `${m} min`;
+  };
+
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  const BASE_DATE = new Date(2026, 9, 20);
+  function dateAdded(i) {
+    const d = new Date(BASE_DATE);
+    d.setDate(d.getDate() - i * 3);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function artistInfo(name) {
+    const seed = hashString("artist:" + name);
+    const listeners = 320000 + (seed % 8200000);
+    return { name, listeners, formatted: listeners.toLocaleString("en-US") };
+  }
+
+  /* ── Artwork (generated placeholder covers) ────────────────── */
+  const ART_CACHE = new Map();
+
+  function coverArt(seed, { glyph = "", label = "" } = {}) {
+    const key = `${seed}|${glyph}|${label}`;
+    if (ART_CACHE.has(key)) return ART_CACHE.get(key);
+
+    const h1 = hashString(seed) % 360;
+    const h2 = (h1 + 38) % 360;
+    const h3 = (h1 + 82) % 360;
+    const initial = (label || seed).trim().charAt(0).toUpperCase();
+    const caption = label ? esc(label.toUpperCase().slice(0, 18)) : "";
+    const glyphText = glyph ? esc(glyph) : "";
+
+    const svgText = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="hsl(${h1} 68% 57%)"/>
+          <stop offset=".55" stop-color="hsl(${h2} 62% 34%)"/>
+          <stop offset="1" stop-color="hsl(${h3} 58% 14%)"/>
+        </linearGradient>
+        <radialGradient id="glow" cx=".28" cy=".18" r=".85">
+          <stop offset="0" stop-color="#fff" stop-opacity=".38"/>
+          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="320" height="320" fill="url(#bg)"/>
+      <circle cx="266" cy="62" r="120" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="26"/>
+      <circle cx="52" cy="288" r="132" fill="#000" fill-opacity=".18"/>
+      <path d="M-20 236C60 196 120 268 200 226s100-16 140 8v86H-20z" fill="#000" fill-opacity=".22"/>
+      <rect width="320" height="320" fill="url(#glow)"/>
+      ${
+        glyphText
+          ? `<text x="160" y="205" text-anchor="middle" font-family="Figtree, Helvetica, Arial, sans-serif" font-size="138" font-weight="800" fill="#fff" fill-opacity=".92">${glyphText}</text>`
+          : `<text x="160" y="200" text-anchor="middle" font-family="Figtree, Helvetica, Arial, sans-serif" font-size="150" font-weight="800" fill="#fff" fill-opacity=".2">${initial}</text>`
+      }
+      ${caption ? `<text x="22" y="298" font-family="Figtree, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="700" letter-spacing="2.4" fill="#fff" fill-opacity=".78">${caption}</text>` : ""}
+    </svg>`;
+
+    const url = "data:image/svg+xml," + encodeURIComponent(svgText);
+    ART_CACHE.set(key, url);
+    return url;
+  }
+
+  /* Uploaded artwork wins; generated SVG is only the fallback. */
+  const trackArt = (t) => t.cover || coverArt(t.album || t.title, { label: t.album || t.title });
+  const itemArt = (item) =>
+    item.cover_url || item.artist_image_url || coverArt(item.seed || item.title, { glyph: item.glyph || "", label: item.title });
+  const artistArt = (name) => {
+    const artist = (window.ARTIST_BY_NAME || {})[name];
+    return (artist && artist.image_url) || coverArt("artist:" + name, { label: name });
+  };
+  const genreArt = (g) => coverArt(g.seed, { label: g.name });
+
+  function tintFor(seed) {
+    return `hsl(${hashString(seed) % 360} 42% 24%)`;
+  }
+
+  /* ── State ─────────────────────────────────────────────────── */
+  const LS_LIKED = "wavely.liked.v1";
+  const LS_VOLUME = "wavely.volume.v1";
+  const LS_VIDEO = "wavely.video.v1";
+  /* The catalogue comes from Supabase, so there is no demo track list to
+     pre-like: a fresh visitor starts with an empty Liked Songs. */
+  const DEFAULT_LIKED = [];
+
+  function loadLiked() {
+    try {
+      const raw = localStorage.getItem(LS_LIKED);
+      if (raw) {
+        const ids = JSON.parse(raw);
+        if (Array.isArray(ids)) return new Set(ids);
+      }
+    } catch (_) {}
+    return new Set(DEFAULT_LIKED);
+  }
+
+  function loadVolume() {
+    try {
+      const raw = localStorage.getItem(LS_VOLUME);
+      const v = Number(raw);
+      if (Number.isFinite(v) && v >= 0 && v <= 1) return v;
+    } catch (_) {}
+    return 0.65;
+  }
+
+  function loadVideoMode() {
+    try {
+      return localStorage.getItem(LS_VIDEO) === "1";
+    } catch (_) {}
+    return false;
+  }
+
+  const state = {
+    query: "",
+    libFilter: "playlists",
+    videoOn: loadVideoMode(),
+    liked: loadLiked(),
+    following: new Set(),
+    searchTracks: [],
+    player: {
+      queue: [],
+      index: 0,
+      playing: false,
+      pos: 0,
+      duration: 0,
+      shuffle: false,
+      repeat: 0,
+      volume: loadVolume(),
+      muted: false,
+      seeking: false
+    }
+  };
+  const p = state.player;
+
+  const currentTrack = () => p.queue[p.index] || null;
+  const currentContext = () => currentTrack()?.contextId || null;
+
+  /* Liked Songs is a built-in playlist, not a catalogue row, so it needs its
+     own defaults when the catalogue comes from Supabase. */
+  const LIKED_ITEM = {
+    id: "liked",
+    type: "Playlist",
+    title: "Liked Songs",
+    owner: "You",
+    seed: "Liked Songs",
+    glyph: "♥",
+    description: "Every song you've liked, in one place."
+  };
+
+  /* A track can credit several artists, so match on ids as well as the
+     joined display name (used by artist pages and playback contexts). */
+  function tracksByArtist(name) {
+    const artist = (window.ARTIST_BY_NAME || {})[name];
+    const artistId = artist && artist.id;
+    return (window.TRACKS || []).filter(
+      (t) => (artistId && (t.artist_ids || []).includes(artistId)) || t.artist === name
+    );
+  }
+
+  /* A multi-artist credit renders as "A, B", which no artist row is named —
+     link and follow the first credited artist (artist_ids is in credit order)
+     that actually exists in the catalogue. */
+  function primaryArtistName(t) {
+    const artists = window.ARTISTS || [];
+    const ids = [...(t.artist_ids || []), t.artist_id].filter(Boolean);
+    for (const id of ids) {
+      const artist = artists.find((a) => a.id === id);
+      if (artist) return artist.name;
+    }
+    return String(t.artist || "").split(",")[0].trim();
+  }
+
+  function getItem(id) {
+    if (id === "liked") {
+      const base = (window.ITEM_BY_ID||{}).liked || LIKED_ITEM;
+      const tracks = (window.TRACKS||[]).filter((t) => state.liked.has(t.id));
+      return { ...base, tracks, trackIds: tracks.map((t) => t.id) };
+    }
+    if (id === "all-songs") {
+      const tracks = (window.TRACKS || []).slice();
+      return {
+        id: "all-songs",
+        type: "Playlist",
+        title: "All Songs",
+        owner: "Aurum",
+        seed: "All Songs",
+        glyph: "♪",
+        description: "Every song in your library.",
+        trackIds: tracks.map((t) => t.id),
+        tracks
+      };
+    }
+    return (window.ITEM_BY_ID||{})[id] || null;
+  }
+
+  /* ── Audio engine ──────────────────────────────────────────── */
+  const audio = new Audio();
+  audio.preload = "auto";
+  audio.volume = p.volume;
+
+  const synth = window.WavelySynth || null;
+  const synthSeed = (track) => (track ? `${track.id}:${track.title}` : "");
+
+  const hasAudio = () => Boolean(currentTrack()?.src);
+
+  /* Start the procedural engine for demo tracks, or silence it when a
+     real audio file (track.src) takes over. */
+  function syncSynth(autoplay) {
+    if (!synth) return;
+    const t = currentTrack();
+    if (autoplay && t && !t.src && !isYT(t)) synth.play(synthSeed(t));
+    else synth.stop();
+  }
+
+  function syncAudio(autoplay) {
+    const t = currentTrack();
+    if (t?.src) {
+      const abs = new URL(t.src, location.href).href;
+      if (audio.src !== abs) audio.src = t.src;
+      audio.currentTime = 0;
+      audio.volume = p.muted ? 0 : p.volume;
+      if (autoplay) audio.play().catch(() => {});
+    } else {
+      audio.pause();
+      if (audio.getAttribute("src")) {
+        audio.removeAttribute("src");
+        audio.load();
+      }
+    }
+  }
+
+  audio.addEventListener("timeupdate", () => {
+    if (!hasAudio()) return;
+    p.pos = audio.currentTime;
+    p.duration = audio.duration || currentTrack()?.duration || 0;
+    updateProgress();
+  });
+  audio.addEventListener("ended", () => next(true));
+
+  /* ── YouTube playback (official IFrame API) ────────────────── */
+  /* Saved YouTube songs are ordinary catalogue rows; their metadata is
+     fetched once from the local /api/video proxy when added, so our API key
+     never reaches the browser. The audio itself plays inside YouTube's own
+     embed — nothing is downloaded or re-hosted here. */
+  const isYT = (t) => Boolean(t && t.yt);
+
+  let ytPlayer = null;
+  let ytPlayerPromise = null;
+  let ytApiPromise = null;
+
+  function ensureYTApi() {
+    if (ytApiPromise) return ytApiPromise;
+    ytApiPromise = new Promise((resolve) => {
+      if (window.YT && window.YT.Player) {
+        resolve(window.YT);
+        return;
+      }
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (typeof prev === "function") prev();
+        resolve(window.YT);
+      };
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      s.onerror = () => console.warn("YouTube IFrame API failed to load");
+      document.head.appendChild(s);
+    });
+    return ytApiPromise;
+  }
+
+  function ensureYTPlayer() {
+    if (ytPlayer) return Promise.resolve(ytPlayer);
+    if (ytPlayerPromise) return ytPlayerPromise;
+    ytPlayerPromise = ensureYTApi().then(
+      (YT) =>
+        new Promise((resolve) => {
+          const wrap = document.createElement("div");
+          wrap.id = "ytWrap";
+          const host = document.createElement("div");
+          host.id = "ytHost";
+          const cover = document.createElement("div");
+          cover.className = "yt-center-cover";
+          wrap.appendChild(host);
+          wrap.appendChild(cover);
+          document.body.appendChild(wrap);
+          new YT.Player("ytHost", {
+            width: "1",
+            height: "1",
+            playerVars: {
+              autoplay: 1,
+              playsinline: 1,
+              controls: 0,
+              rel: 0,
+              modestbranding: 1,
+              disablekb: 1
+            },
+            events: {
+              onReady: (ev) => {
+                ytPlayer = ev.target;
+                resolve(ytPlayer);
+              },
+              onStateChange: (ev) => {
+                const S = window.YT && window.YT.PlayerState;
+                if (!S || !isYT(currentTrack())) return;
+                if (ev.data === S.ENDED) {
+                  if (p.repeat === 2) {
+                    ev.target.seekTo(0, true);
+                    ev.target.playVideo();
+                  } else {
+                    next(true);
+                  }
+                } else if (ev.data === S.PLAYING) {
+                  p.playing = true;
+                  updateAll();
+                } else if (ev.data === S.PAUSED) {
+                  p.playing = false;
+                  updateAll();
+                }
+              },
+              onError: () => {
+                if (!isYT(currentTrack())) return;
+                // YouTube rejected this video (embedding disabled, region-blocked,
+                // age-restricted, etc.). Silently try the next track so the user
+                // never hits a dead end — only report if the whole queue fails.
+                next(true);
+              }
+            }
+          });
+        })
+    );
+    return ytPlayerPromise;
+  }
+
+  /* Queue a player call until the embed is ready (and swallow failures —
+     an offline browser should not break the rest of the player). */
+  const ytDo = (fn) => {
+    ensureYTPlayer()
+      .then((pl) => {
+        try {
+          fn(pl);
+        } catch (_) {}
+      })
+      .catch(() => {});
+  };
+
+  /* Cue (paused) when autoplay is off — loadVideoById always autoplays,
+     which would race with the play() that follows a queue change. */
+  function ytLoad(track, autoplay) {
+    const vid = track.videoId;
+    ytDo((pl) => {
+      if (!isYT(currentTrack()) || currentTrack().videoId !== vid) return; // queue moved on
+      if (autoplay) pl.loadVideoById(vid);
+      else pl.cueVideoById(vid);
+      pl.setVolume(Math.round((p.muted ? 0 : p.volume) * 100));
+    });
+  }
+
+  function ytStop() {
+    if (!ytPlayer) return;
+    try {
+      ytPlayer.stopVideo();
+    } catch (_) {}
+  }
+
+  function setQueue(tracks, index = 0, contextId = null) {
+    p.queue = tracks.map((t) => ({ ...t, contextId }));
+    p.index = Math.max(0, Math.min(index, p.queue.length - 1));
+    p.pos = 0;
+    p.duration = p.queue[p.index]?.duration || 0;
+    synth?.stop();
+    syncAudio(false);
+    if (isYT(p.queue[p.index])) ytLoad(p.queue[p.index], false);
+    else ytStop();
+    updateAll();
+  }
+
+  function loadIndex(i, autoplay) {
+    if (!p.queue[i]) return;
+    p.index = i;
+    p.pos = 0;
+    p.duration = p.queue[i].duration;
+    p.playing = Boolean(autoplay);
+    synth?.stop();
+    syncAudio(p.playing);
+    if (isYT(p.queue[i])) ytLoad(p.queue[i], p.playing);
+    else ytStop();
+    if (p.playing && !p.queue[i].src && !isYT(p.queue[i]) && synth) {
+      try {
+        synth.play(synthSeed(p.queue[i]));
+      } catch (_) {}
+    }
+    updateAll();
+  }
+
+  function play() {
+    if (!p.queue.length) return;
+    // Ensure AudioContext is resumed (requires user gesture; click triggers this).
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC && window.__wavelyGlobalAC && window.__wavelyGlobalAC.state === "suspended") {
+        window.__wavelyGlobalAC.resume().catch(() => {});
+      } else if (AC && !window.__wavelyGlobalAC) {
+        window.__wavelyGlobalAC = new AC();
+        window.__wavelyGlobalAC.resume().catch(() => {});
+      }
+    } catch (_) {}
+    p.playing = true;
+    if (isYT(currentTrack())) {
+      const vid = currentTrack().videoId;
+      /* Start playback in one step. cueVideoById() is asynchronous, so a
+         playVideo() fired right after a cue is silently dropped and the
+         first click only "selects" the song. Only resume when the embed is
+         genuinely on this video and already playing/paused/buffering;
+         otherwise load-and-play in one call. */
+      const start = (pl) => {
+        const S = window.YT && window.YT.PlayerState;
+        let state = -99;
+        let data = null;
+        try {
+          state = pl.getPlayerState();
+          data = pl.getVideoData();
+        } catch (_) {}
+        const sameVideo = Boolean(data && data.video_id === vid);
+        const active = S && (state === S.PLAYING || state === S.PAUSED || state === S.BUFFERING);
+        if (sameVideo && active) pl.playVideo();
+        else pl.loadVideoById(vid);
+      };
+
+      // Call synchronously when the embed already exists — this keeps the
+      // click's user gesture, which browsers require for audible playback.
+      if (ytPlayer) {
+        try {
+          start(ytPlayer);
+        } catch (_) {
+          ytDo(start);
+        }
+      } else {
+        ytDo(start);
+      }
+      updateAll();
+      return;
+    }
+    if (hasAudio()) audio.play().catch(() => {});
+    else if (synth) {
+      try {
+        synth.play(synthSeed(currentTrack()));
+      } catch (_) {}
+    }
+    updateAll();
+  }
+
+  function pause() {
+    p.playing = false;
+    if (isYT(currentTrack())) ytDo((pl) => pl.pauseVideo());
+    if (hasAudio()) audio.pause();
+    synth?.stop();
+    updateAll();
+  }
+
+  /* p.playing is optimistic while the embed is still loading/buffering —
+     a second click in that window would wrongly toggle to "pause"
+     (that was the "click 3 times to play" bug). Ground the toggle in
+     the player's real state: ignore clicks while still buffering,
+     pause only once sound is actually flowing. */
+  function ytToggleState() {
+    if (!ytPlayer) return "not-ready";
+    try {
+      const S = window.YT && window.YT.PlayerState;
+      if (!S) return "not-ready";
+      const st = ytPlayer.getPlayerState();
+      if (st === S.BUFFERING) return "buffering";
+      if (st === S.PLAYING) return "playing";
+      return "idle"; // UNSTARTED / PAUSED / CUED / ENDED
+    } catch (_) {
+      return "not-ready";
+    }
+  }
+
+  const togglePlay = () => {
+    if (isYT(currentTrack())) {
+      const st = ytToggleState();
+      if (st === "buffering" || st === "not-ready") return; // let it start
+      if (st === "playing") {
+        pause();
+        return;
+      }
+      play();
+      return;
+    }
+    p.playing ? pause() : play();
+  };
+
+  function next(auto = false) {
+    if (!p.queue.length) return;
+
+    if (auto && p.repeat === 2) {
+      p.pos = 0;
+      if (hasAudio()) audio.currentTime = 0;
+      if (isYT(currentTrack())) ytDo((pl) => pl.seekTo(0, true));
+      if (p.playing) play();
+      updateProgress();
+      return;
+    }
+
+    let i;
+    if (p.shuffle && p.queue.length > 1) {
+      do {
+        i = Math.floor(Math.random() * p.queue.length);
+      } while (i === p.index);
+    } else {
+      i = p.index + 1;
+    }
+
+    if (i >= p.queue.length) {
+      if (p.repeat === 1 || !auto) {
+        i = 0;
+      } else {
+        p.playing = false;
+        p.pos = 0;
+        if (hasAudio()) audio.pause();
+        ytStop();
+        updateAll();
+        return;
+      }
+    }
+    loadIndex(i, p.playing || auto);
+  }
+
+  function prev() {
+    if (!p.queue.length) return;
+    if (p.pos > 3) {
+      p.pos = 0;
+      if (hasAudio()) audio.currentTime = 0;
+      if (isYT(currentTrack())) ytDo((pl) => pl.seekTo(0, true));
+      updateProgress();
+      return;
+    }
+    const i = p.index > 0 ? p.index - 1 : 0;
+    loadIndex(i, p.playing);
+  }
+
+  function seekTo(ratio, moving = false) {
+    p.seeking = moving;
+    p.pos = Math.min(1, Math.max(0, ratio)) * p.duration;
+    if (hasAudio()) audio.currentTime = p.pos;
+    if (!moving && isYT(currentTrack())) ytDo((pl) => pl.seekTo(p.pos, true));
+    updateProgress();
+  }
+
+  function setVolume(ratio) {
+    const v = Math.min(1, Math.max(0, ratio));
+    p.volume = v;
+    p.muted = v === 0;
+    audio.volume = v;
+    ytDo((pl) => pl.setVolume(Math.round(v * 100)));
+    synth?.setVolume(v);
+    try {
+      localStorage.setItem(LS_VOLUME, String(v));
+    } catch (_) {}
+    updateVolume();
+  }
+
+  function toggleMute() {
+    const silent = p.muted || p.volume === 0;
+    if (silent) {
+      p.muted = false;
+      if (p.volume === 0) p.volume = 0.65;
+      audio.volume = p.volume;
+      try {
+        localStorage.setItem(LS_VOLUME, String(p.volume));
+      } catch (_) {}
+    } else {
+      p.muted = true;
+      audio.volume = 0;
+    }
+    synth?.setVolume(p.muted ? 0 : p.volume);
+    ytDo((pl) => pl.setVolume(Math.round((p.muted ? 0 : p.volume) * 100)));
+    updateVolume();
+  }
+
+  /* ── Video ON/OFF ──────────────────────────────────────────── */
+  /* The YouTube embed stays a 1x1 audio-only player until video mode is
+     switched on; then it lifts into a floating mini player. Preference
+     is remembered in localStorage. */
+  function applyVideoMode() {
+    const visible = state.videoOn && Boolean(isYT(currentTrack()));
+    document.body.classList.toggle("video-on", visible);
+    // video-paused drives the .yt-center-cover that hides YouTube's big
+    // centered play button while music is stopped
+    document.body.classList.toggle("video-paused", visible && !p.playing);
+    const btn = UI.videoBtn;
+    if (btn) {
+      btn.classList.toggle("active", visible);
+      btn.setAttribute("aria-pressed", String(state.videoOn));
+      btn.title = state.videoOn ? "Video off — audio only" : "Watch video";
+    }
+  }
+
+  function toggleLike(id) {
+    if (!id) return;
+    const wasLiked = state.liked.has(id);
+    if (wasLiked) state.liked.delete(id);
+    else state.liked.add(id);
+
+    try {
+      localStorage.setItem(LS_LIKED, JSON.stringify([...state.liked]));
+    } catch (_) {}
+
+    updateLikeUI();
+    npKey = null;
+    renderNowPlaying();
+    persistLike(id, !wasLiked);
+    if (wasLiked) toast("Removed from Liked Songs");
+    else toast("Added to Liked Songs", "check");
+  }
+
+  function toggleFollow(name) {
+    if (!name) return;
+    const following = !state.following.has(name);
+    if (following) {
+      state.following.add(name);
+      toast(`Following ${name}`, "check");
+    } else {
+      state.following.delete(name);
+      toast(`Unfollowed ${name}`);
+    }
+    npKey = null;
+    renderNowPlaying();
+    $$(".follow-btn[data-name]").forEach((btn) => {
+      if (btn.dataset.name !== name) return;
+      btn.classList.toggle("following", following);
+      btn.textContent = following ? "Following" : "Follow";
+      btn.setAttribute("aria-pressed", String(following));
+    });
+  }
+
+  /* ── Library data ──────────────────────────────────────────── */
+  function libraryItems(filter = state.libFilter) {
+    if (filter === "artists") return window.ARTISTS || [];
+    if (filter === "albums") return window.ALBUMS || [];
+    return [getItem("liked"), ...((window.PLAYLISTS||[]).filter((x) => x.id !== "liked"))];
+  }
+
+  /* ── Search ────────────────────────────────────────────────── */
+  function runSearch(q) {
+    const needle = q.toLowerCase();
+    const tracks = (window.TRACKS||[]).filter((t) =>
+      `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(needle)
+    );
+    const playlists = (window.ALL_ITEMS||{}).filter((i) =>
+      `${i.title} ${i.description || ""} ${i.owner || ""} ${i.artist || ""}`.toLowerCase().includes(needle)
+    );
+    const artists = (window.ARTISTS||{}).filter((a) => a.name.toLowerCase().includes(needle));
+    const genres = liveGenres().filter((g) => g.name.toLowerCase().includes(needle));
+
+    genres.forEach((g) => {
+      ((window.GENRE_TRACKS || {})[g.name] || []).forEach((id) => {
+        const t = (window.TRACK_BY_ID||{})[id];
+        if (t && !tracks.includes(t)) tracks.push(t);
+      });
+    });
+
+    return { tracks, playlists, artists, genres };
+  }
+
+  /* ── Shared markup ─────────────────────────────────────────── */
+  function eqBars() {
+    return '<span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+  }
+
+  function card(item, extraClass = "") {
+    const isArtist = item.type === "Artist";
+    const isTrack = item.type === "Track";
+    const path = isArtist
+      ? `/artist/${encodeURIComponent(item.name)}`
+      : isTrack
+        ? "#"
+        : `/playlist/${encodeURIComponent(item.id)}`;
+    const sub = isArtist
+      ? "Artist"
+      : isTrack
+        ? (item.artist || "")
+        : item.type === "Album"
+          ? `${item.artist}${item.year ? ` • ${item.year}` : ""}`
+          : item.description || `${item.tracks?.length || 0} songs`;
+
+    const imgSrc = isArtist ? artistArt(item.name) : isTrack && item.tracks && item.tracks[0] ? trackArt(item.tracks[0]) : itemArt(item);
+
+    return `<article class="card ${isArtist ? "artist" : ""} ${extraClass}" role="link" tabindex="0" ${isTrack ? `data-action="play-track-card" data-track-id="${item.tracks && item.tracks[0] ? item.tracks[0].id : ''}"` : `data-nav="${path}"`} aria-label="${esc(item.title || item.name)}">
+      <div class="card-img">
+        <img src="${imgSrc}" alt="" loading="lazy" />
+        ${
+          isArtist
+            ? ""
+            : `<button class="play-fab" type="button" data-action="${isTrack ? "play-track-card" : "play-context"}" data-id="${isTrack && item.tracks && item.tracks[0] ? item.tracks[0].id : item.id}" data-label="${esc(item.title)}" aria-label="Play ${esc(item.title)}">${icon("play")}</button>`
+        }
+      </div>
+      <h3 class="card-title">${esc(item.title || item.name)}</h3>
+      <p class="card-sub">${esc(sub)}</p>
+    </article>`;
+  }
+
+  function quickTile(item) {
+    return `<div class="quick-tile" role="link" tabindex="0" data-nav="/playlist/${encodeURIComponent(item.id)}">
+      <img src="${itemArt(item)}" alt="" />
+      <span class="quick-tile-title">${esc(item.title)}</span>
+      <button class="play-fab" type="button" data-action="play-context" data-id="${item.id}" data-label="${esc(item.title)}" aria-label="Play ${esc(item.title)}">${icon("play")}</button>
+    </div>`;
+  }
+
+  function genreTile(g) {
+    return `<button class="genre" type="button" style="--c1:${g.c1}" data-nav="/genre/${encodeURIComponent(g.name)}" aria-label="Browse ${esc(g.name)}">
+      <span class="genre-title">${esc(g.name)}</span>
+      <img src="${genreArt(g)}" alt="" loading="lazy" />
+    </button>`;
+  }
+
+  function trackRow(t, i, contextId, opts = {}) {
+    const liked = state.liked.has(t.id);
+    const date = opts.date || dateAdded(i);
+    const albumId = itemIdForAlbum(t.album);
+    return `<div class="track-row" role="button" tabindex="0" data-action="play-track" data-context="${esc(contextId)}" data-index="${i}" data-track-id="${t.id}">
+      <div class="track-idx">
+        <span class="idx">${i + 1}</span>
+        <span class="row-play">${icon("play")}</span>
+        ${eqBars()}
+      </div>
+      <div class="track-main">
+        <div class="track-name"><span class="track-title">${esc(t.title)}</span>${t.explicit ? '<span class="explicit">E</span>' : ""}</div>
+        <div class="track-artist"><span data-nav="/artist/${encodeURIComponent(primaryArtistName(t))}">${esc(t.artist)}</span></div>
+      </div>
+      <div class="track-album"${albumId ? ` data-nav="/playlist/${albumId}"` : ""}>${esc(t.album)}</div>
+      <div class="track-date">${esc(date)}</div>
+      <span class="track-dur">${fmtTime(t.duration)}</span>
+      <div class="row-actions">
+        <button class="row-add" type="button" data-action="add-to-playlist" data-id="${t.id}" aria-label="Add to playlist" title="Add to playlist">${icon("plus", "sm")}</button>
+        <button class="row-like ${liked ? "liked" : ""}" type="button" data-action="like" data-id="${t.id}" aria-label="${liked ? "Remove from" : "Save to"} Liked Songs">
+          ${icon("heart", "sm")}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  function itemIdForAlbum(albumName) {
+    const album = ((window.ALBUMS||[])).find((a) => a.title === albumName);
+    return album ? album.id : null;
+  }
+
+  function trackTable(item) {
+    const rows = item.tracks.map((t, i) => trackRow(t, i, item.id)).join("");
+    return `<div class="tracks">
+      <div class="track-head" role="row">
+        <div class="col-idx">#</div>
+        <div>Title</div>
+        <div class="col-album">Album</div>
+        <div class="col-date">Date added</div>
+        <div class="col-dur">${icon("clock", "sm")}</div>
+        <div class="col-like"></div>
+      </div>
+      <div class="track-body">${rows}</div>
+    </div>`;
+  }
+
+  /* ── Views ─────────────────────────────────────────────────── */
+  /* Quick picks and shelves come from the live catalogue. The old hard-coded
+     demo ids pointed at playlists that no longer exist with Supabase data. */
+  function homeQuickPickIds() {
+    if (Array.isArray(window.QUICK_PICKS) && window.QUICK_PICKS.length) return window.QUICK_PICKS;
+    return [...(window.PLAYLISTS || []), ...(window.ALBUMS || [])].slice(0, 6).map((i) => i.id);
+  }
+
+  function homeShelves() {
+    if (Array.isArray(window.SHELVES) && window.SHELVES.length) return window.SHELVES;
+    const shelves = [];
+    if ((window.PLAYLISTS || []).length) {
+      shelves.push({ title: "Your playlists", ids: window.PLAYLISTS.map((p) => p.id) });
+    }
+    if ((window.ALBUMS || []).length) {
+      shelves.push({ title: "Albums", ids: window.ALBUMS.map((a) => a.id) });
+    }
+    return shelves;
+  }
+
+  function viewHome() {
+    const hour = new Date().getHours();
+    const greeting =
+      hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+    const quick = homeQuickPickIds().map(getItem).filter(Boolean).map(quickTile).join("");
+
+    const recentTracks = ((window.TRACKS||[])).slice(0, 6).map(t => ({
+      id: 'track:'+t.id,
+      type: 'Track',
+      title: t.title,
+      artist: t.artist,
+      seed: t.title,
+      tracks: [t]
+    }));
+
+    let recentSection = '';
+    if (recentTracks.length) {
+      recentSection = `<section class="shelf">
+        <div class="shelf-head">
+          <h2 class="shelf-title">Recently added</h2>
+        </div>
+        <div class="card-grid">${recentTracks.map((i) => card(i)).join("")}</div>
+      </section>`;
+    }
+
+    const shelves = homeShelves().map((shelf) => {
+      const items = shelf.ids.map(getItem).filter(Boolean);
+      if (!items.length) return "";
+      return `<section class="shelf">
+        <div class="shelf-head">
+          <h2 class="shelf-title" data-nav="/library">${esc(shelf.title)}</h2>
+          <button class="show-all" type="button" data-nav="/library">Show all</button>
+        </div>
+        <div class="card-grid">${items.map((i) => card(i)).join("")}</div>
+      </section>`;
+    }).join("");
+
+    return `<div class="home">
+      <h1 class="greeting">${greeting}</h1>
+      <div class="quick-grid">${quick}</div>
+      ${recentSection}
+      ${shelves}
+    </div>`;
+  }
+
+  function viewPlaylist(id) {
+    const item = getItem(id);
+    if (!item) return viewNotFound();
+
+    const isAlbum = item.type === "Album";
+    const totalSec = item.tracks.reduce((s, t) => s + t.duration, 0);
+    const ownerInitial = isAlbum ? item.artist.charAt(0) : item.owner === "You" ? "Y" : item.owner.charAt(0);
+
+    const meta = isAlbum
+      ? `<span class="avatar-xs">${esc(ownerInitial)}</span><strong>${esc(item.artist)}</strong><span class="dot">•</span><span>${item.year}</span><span class="dot">•</span><span>${plural(item.tracks.length, "song")},</span><span class="total">${fmtLong(totalSec)}</span>`
+      : `<span class="avatar-xs">${esc(ownerInitial)}</span><strong>${esc(item.owner)}</strong><span class="dot">•</span><span>${plural(item.tracks.length, "song")},</span><span class="total">${fmtLong(totalSec)}</span>`;
+
+    const body = item.tracks.length
+      ? trackTable(item)
+      : `<div class="tracks"><div class="empty-state">
+          <h3>Songs will show up here</h3>
+          <p>Like a song with the heart icon and it will appear in this playlist.</p>
+        </div></div>`;
+
+    return `<div class="pl-hero" style="--tint:${tintFor(item.seed || item.id)}">
+      <div class="pl-header">
+        <img class="pl-cover" src="${itemArt(item)}" alt="${esc(item.title)} cover" />
+        <div class="pl-info">
+          <span class="pl-eyebrow">${isAlbum ? "Album" : "Playlist"}</span>
+          <h1 class="pl-title">${esc(item.title)}</h1>
+          ${item.description ? `<p class="pl-desc">${esc(item.description)}</p>` : ""}
+          <div class="pl-meta">${meta}</div>
+        </div>
+      </div>
+    </div>
+    <div class="pl-actions">
+      <button class="big-play" type="button" data-action="play-context" data-id="${item.id}" data-label="${esc(item.title)}" aria-label="Play ${esc(item.title)}">${icon("play")}</button>
+      <button class="icon-btn plain" type="button" data-action="toast" data-msg="Added to Your Library" aria-label="Save to Your Library" title="Save to Your Library">${icon("heart")}</button>
+      <button class="icon-btn plain" type="button" data-action="toast" data-msg="More options aren't part of this demo" aria-label="More options" title="More options">${icon("more")}</button>
+    </div>
+    ${body}`;
+  }
+
+  function viewArtist(name) {
+    const artist = (window.ARTIST_BY_NAME||{})[name];
+    if (!artist) return viewNotFound();
+
+    const info = artistInfo(name);
+    const tracks = tracksByArtist(name);
+    const albums = (window.ALBUMS||{}).filter((a) => a.artist === name);
+    const following = state.following.has(name);
+
+    const playCount = (t) => Number(String(t.plays ?? "0").replace(/[^\d.]/g, "")) || 0;
+    const popular = tracks
+      .slice()
+      .sort((a, b) => playCount(b) - playCount(a))
+      .slice(0, 5);
+
+    const rows = popular
+      .map((t, i) => trackRow(t, i, `artist:${name}`, { date: `${t.plays} plays` }))
+      .join("");
+
+    const discography = albums.length
+      ? `<section class="artist-section">
+          <h2>Discography</h2>
+          <div class="card-grid">${albums.map((a) => card(a)).join("")}</div>
+        </section>`
+      : "";
+
+    return `<div class="artist-hero" style="--tint:${tintFor("artist:" + name)}">
+      <img class="artist-photo" src="${artistArt(name)}" alt="${esc(name)}" />
+      <div class="artist-info">
+        <span class="pl-eyebrow">Artist</span>
+        <h1 class="artist-name">${esc(name)}</h1>
+        <p class="artist-listeners">${info.formatted} monthly listeners</p>
+      </div>
+    </div>
+    <div class="pl-actions">
+      <button class="big-play" type="button" data-action="artist-play" data-name="${esc(name)}" data-label="${esc(name)}" aria-label="Play ${esc(name)}">${icon("play")}</button>
+      <button class="follow-btn ${following ? "following" : ""}" type="button" data-action="follow" data-name="${esc(name)}" aria-pressed="${following}">${following ? "Following" : "Follow"}</button>
+      <button class="icon-btn plain" type="button" data-action="toast" data-msg="More options aren't part of this demo" aria-label="More options">${icon("more")}</button>
+    </div>
+    <section class="artist-section">
+      <h2>Popular</h2>
+      <div class="tracks">
+        <div class="track-head">
+          <div class="col-idx">#</div><div>Title</div><div class="col-album">Album</div><div class="col-date">Plays</div><div class="col-dur">${icon("clock", "sm")}</div><div class="col-like"></div>
+        </div>
+        ${rows}
+      </div>
+    </section>
+    ${discography}`;
+  }
+
+  function viewGenre(name) {
+    const genre = (window.GENRE_BY_NAME||{})[name];
+    if (!genre) return viewNotFound();
+
+    const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
+    const totalSec = tracks.reduce((sum, t) => sum + t.duration, 0);
+    const item = {
+      id: `genre:${name}`,
+      type: "Genre",
+      title: name,
+      owner: "Aurum",
+      seed: genre.seed,
+      description: `The best of ${name}, all in one place.`,
+      tracks
+    };
+
+    const body = tracks.length
+      ? trackTable(item)
+      : `<div class="tracks"><div class="empty-state">
+          <h3>Nothing here yet</h3>
+          <p>This genre doesn't have any tracks in the demo catalogue.</p>
+        </div></div>`;
+
+    return `<div class="pl-hero" style="--tint:${tintFor(genre.seed)}">
+      <div class="pl-header">
+        <img class="pl-cover" src="${itemArt(item)}" alt="${esc(name)} cover" />
+        <div class="pl-info">
+          <span class="pl-eyebrow">Genre</span>
+          <h1 class="pl-title">${esc(name)}</h1>
+          <p class="pl-desc">${esc(item.description)}</p>
+          <div class="pl-meta">
+            <span class="avatar-xs">A</span><strong>Aurum</strong>
+            <span class="dot">•</span><span>${plural(tracks.length, "song")},</span>
+            <span class="total">${fmtLong(totalSec)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pl-actions">
+      <button class="big-play" type="button" data-action="play-genre" data-name="${esc(name)}" data-label="${esc(name)}" aria-label="Play ${esc(name)}">${icon("play")}</button>
+      <button class="icon-btn plain" type="button" data-action="toast" data-msg="Added to Your Library" aria-label="Save to Your Library" title="Save to Your Library">${icon("heart")}</button>
+      <button class="icon-btn plain" type="button" data-action="toast" data-msg="More options aren't part of this demo" aria-label="More options" title="More options">${icon("more")}</button>
+    </div>
+    ${body}`;
+  }
+
+  function viewProfile() {
+    const auth = window.WavelyAuth;
+    const user = auth && auth.user;
+
+    if (!user) {
+      return `<div class="page">
+        <h1 class="page-title">Your profile</h1>
+        <div class="empty-state">
+          <h3>Log in to see your profile</h3>
+          <p>Playlists aur liked songs account ke saath save hote hain.</p>
+          <button class="pill pill-light" type="button" data-action="login">Log in</button>
+        </div>
+      </div>`;
+    }
+
+    const name = auth.displayName(user) || "Listener";
+    const initial = (name.trim().charAt(0) || "U").toUpperCase();
+    const likedTracks = (window.TRACKS || []).filter((t) => state.liked.has(t.id));
+    const myPlaylists = (window.PLAYLISTS || []).filter((p) => p.user_id === user.id);
+
+    const likedSection = likedTracks.length
+      ? trackTable({ id: "liked", tracks: likedTracks })
+      : `<p class="profile-empty">Abhi koi liked song nahi — kisi bhi song par heart dabao.</p>`;
+
+    const playlistSection = myPlaylists.length
+      ? `<div class="card-grid">${myPlaylists.map((item) => card(item)).join("")}</div>`
+      : `<p class="profile-empty">Abhi koi playlist nahi — upar se ek banao.</p>`;
+
+    return `<div class="profile-hero">
+      <div class="profile-avatar">${esc(initial)}</div>
+      <div>
+        <h1 class="profile-name">${esc(name)}</h1>
+        <p class="profile-sub">${esc(user.email || "")}</p>
+        <div class="profile-actions">
+          <button class="pill pill-light" type="button" data-action="create-playlist">Create playlist</button>
+          <button class="pill pill-text" type="button" data-action="logout">Log out</button>
+        </div>
+      </div>
+    </div>
+    <section class="profile-section">
+      <h2>Liked songs <span class="profile-sub">(${likedTracks.length})</span></h2>
+      ${likedSection}
+    </section>
+    <section class="profile-section">
+      <h2>Your playlists <span class="profile-sub">(${myPlaylists.length})</span></h2>
+      ${playlistSection}
+    </section>`;
+  }
+
+  function viewLibraryPage() {
+    const items = libraryItems();
+    const isArtist = state.libFilter === "artists";
+
+    const rows = items
+      .map((item, i) => {
+        if (isArtist) {
+          const info = artistInfo(item.name);
+          return `<div class="lib-row artist" role="link" tabindex="0" data-nav="/artist/${encodeURIComponent(item.name)}">
+            <div class="lib-row-main">
+              <img src="${artistArt(item.name)}" alt="" loading="lazy" />
+              <div><div class="lib-row-title">${esc(item.name)}</div><div class="lib-row-sub">Artist</div></div>
+            </div>
+            <div class="lib-added">—</div>
+            <div class="lib-row-count">${info.formatted} listeners</div>
+          </div>`;
+        }
+        const isAlbum = item.type === "Album";
+        return `<div class="lib-row" role="link" tabindex="0" data-nav="/playlist/${encodeURIComponent(item.id)}">
+          <div class="lib-row-main">
+            <img src="${itemArt(item)}" alt="" loading="lazy" />
+            <div>
+              <div class="lib-row-title">${esc(item.title)}</div>
+              <div class="lib-row-sub">${isAlbum ? "Album" : "Playlist"} • ${esc(item.owner)}</div>
+            </div>
+          </div>
+          <div class="lib-added">${dateAdded(i + 2)}</div>
+          <div class="lib-row-count">${plural(item.tracks.length, "song")}</div>
+        </div>`;
+      })
+      .join("");
+
+    return `<div class="page">
+      <h1 class="page-title">Your Library</h1>
+      <div class="page-chips" role="tablist" aria-label="Library filters">
+        <button class="chip ${state.libFilter === "playlists" ? "active" : ""}" type="button" data-filter="playlists" role="tab" aria-selected="${state.libFilter === "playlists"}">Playlists</button>
+        <button class="chip ${state.libFilter === "albums" ? "active" : ""}" type="button" data-filter="albums" role="tab" aria-selected="${state.libFilter === "albums"}">Albums</button>
+        <button class="chip ${state.libFilter === "artists" ? "active" : ""}" type="button" data-filter="artists" role="tab" aria-selected="${state.libFilter === "artists"}">Artists</button>
+      </div>
+      <div class="lib-table-head">
+        <div>Title</div><div class="col-added">Date added</div><div class="col-count">Songs</div>
+      </div>
+      ${rows}
+    </div>`;
+  }
+
+  function viewAllSongs() {
+    const tracks = (window.TRACKS || []).slice();
+    if (!tracks.length) {
+      return `<div class="page">
+        <h1 class="page-title">All Songs</h1>
+        <div class="empty-state">
+          <h3>No songs yet</h3>
+          <p>Songs added from Admin panel will appear here.</p>
+          <a class="pill pill-light" href="admin.html">Go to Admin</a>
+        </div>
+      </div>`;
+    }
+
+    const item = {
+      id: "all-songs",
+      type: "Playlist",
+      title: "All Songs",
+      owner: "Aurum",
+      seed: "All Songs",
+      description: "Every song in your library.",
+      tracks
+    };
+
+    return `<div class="pl-hero" style="--tint:${tintFor("All Songs")}">
+      <div class="pl-header">
+        <img class="pl-cover" src="${itemArt(item)}" alt="All Songs cover" />
+        <div class="pl-info">
+          <span class="pl-eyebrow">Playlist</span>
+          <h1 class="pl-title">All Songs</h1>
+          <p class="pl-desc">${esc(item.description)}</p>
+          <div class="pl-meta">
+            <span class="avatar-xs">A</span><strong>Aurum</strong>
+            <span class="dot">•</span><span>${plural(tracks.length, "song")},</span><span class="total">${fmtLong(tracks.reduce((s, t) => s + t.duration, 0))}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pl-actions">
+      <button class="big-play" type="button" data-action="play-context" data-id="all-songs" data-label="All Songs" aria-label="Play All Songs">${icon("play")}</button>
+    </div>
+    ${trackTable(item)}`;
+  }
+
+  function viewSearchPage() {
+    const q = state.query.trim();
+    if (!q) {
+      const artists = (window.ARTISTS || []).slice(0, 6);
+      const items = (window.ALL_ITEMS || []).slice(0, 6);
+      const browse = artists.length || items.length
+        ? `${artists.length
+            ? `<section class="results-section">
+                <h2>Artists</h2>
+                <div class="card-grid">${artists.map((a) => card(a)).join("")}</div>
+              </section>`
+            : ""}
+          ${items.length
+            ? `<section class="results-section">
+                <h2>Playlists &amp; albums</h2>
+                <div class="card-grid">${items.map((i) => card(i)).join("")}</div>
+              </section>`
+            : ""}`
+        : `<div class="empty-state">
+            <h3>Nothing in your library yet</h3>
+            <p>Songs you add from the Admin panel — including YouTube links — appear here and in search.</p>
+            <a class="pill pill-light" href="admin.html">Go to Admin</a>
+          </div>`;
+      return `<div class="search-page">
+        <h1 class="page-title">Browse your library</h1>
+        ${browse}
+      </div>`;
+    }
+
+    const res = runSearch(q);
+    state.searchTracks = res.tracks;
+
+    if (!res.tracks.length && !res.playlists.length && !res.artists.length && !res.genres.length) {
+      return `<div class="search-page">
+        <h1 class="search-heading">Search results for <span class="q">“${esc(q)}”</span></h1>
+        <div class="empty-state">
+          <h3>Nothing in your library matched</h3>
+          <p>Search only covers the songs you've added. Add this song from the Admin panel and it will show up here.</p>
+        </div>
+      </div>`;
+    }
+
+    const top = res.playlists[0] || res.artists[0] || res.tracks[0];
+    // A genre name can be the only match, which leaves no playlist/artist/track
+    // for the Top result card — guard the lookup instead of reading `top.id`.
+    const topIsTrack = Boolean(top && (window.TRACK_BY_ID || {})[top.id]);
+    const topIsArtist = Boolean(top && top.type === "Artist");
+
+    let topHTML = "";
+    if (top) {
+      const img = topIsTrack ? trackArt(top) : topIsArtist ? artistArt(top.name) : itemArt(top);
+      const title = topIsTrack ? top.title : topIsArtist ? top.name : top.title;
+      const type = topIsTrack ? "Song" : topIsArtist ? "Artist" : top.type;
+      const nav = topIsTrack
+        ? ""
+        : topIsArtist
+          ? `/artist/${encodeURIComponent(top.name)}`
+          : `/playlist/${encodeURIComponent(top.id)}`;
+      const playBtn = topIsTrack
+        ? `<button class="play-fab" type="button" data-action="play-search" data-id="${top.id}" aria-label="Play ${esc(top.title)}">${icon("play")}</button>`
+        : topIsArtist
+          ? ""
+          : `<button class="play-fab" type="button" data-action="play-context" data-id="${top.id}" data-label="${esc(top.title)}" aria-label="Play ${esc(top.title)}">${icon("play")}</button>`;
+
+      topHTML = `<article class="top-result ${topIsArtist ? "artist" : ""}" ${nav ? `role="link" tabindex="0" data-nav="${nav}"` : ""}>
+        <img src="${img}" alt="" />
+        <h3 class="top-result-title">${esc(title)}</h3>
+        <span class="top-result-type">${esc(type)}</span>
+        ${playBtn}
+      </article>`;
+    }
+
+    const songs = res.tracks
+      .slice(0, 20)
+      .map(
+        (t) => `<div class="song-row" role="button" tabindex="0" data-action="play-search" data-id="${t.id}" data-track-id="${t.id}">
+          <img src="${trackArt(t)}" alt="" loading="lazy" />
+          <div class="song-row-main">
+            <div class="song-row-title">${esc(t.title)}</div>
+            <div class="song-row-artist">${esc(t.artist)}</div>
+          </div>
+          <span class="song-row-dur">${fmtTime(t.duration)}</span>
+        </div>`
+      )
+      .join("");
+
+    const artists = res.artists.length
+      ? `<section class="results-section">
+          <h2>Artists</h2>
+          <div class="card-grid">${res.artists.slice(0, 6).map((a) => card(a)).join("")}</div>
+        </section>`
+      : "";
+
+    const playlists = res.playlists.length
+      ? `<section class="results-section">
+          <h2>Playlists &amp; albums</h2>
+          <div class="card-grid">${res.playlists.slice(0, 6).map((i) => card(i)).join("")}</div>
+        </section>`
+      : "";
+
+    const genres = res.genres.length
+      ? `<section class="results-section">
+          <h2>Genres</h2>
+          <div class="genre-grid">${res.genres.map(genreTile).join("")}</div>
+        </section>`
+      : "";
+
+    return `<div class="search-page">
+      <h1 class="search-heading">Search results for <span class="q">“${esc(q)}”</span></h1>
+      <div class="results-layout">
+        <div class="results-col">
+          <h2>Top result</h2>
+          ${topHTML || '<p class="muted">No top result.</p>'}
+        </div>
+        <div class="results-col">
+          <h2>Songs</h2>
+          <div class="song-list">${songs || '<p class="muted">No songs matched.</p>'}</div>
+        </div>
+      </div>
+      ${artists}
+      ${playlists}
+      ${genres}
+    </div>`;
+  }
+
+  function viewLegal() {
+    const contact = LEGAL_CONTACT_EMAIL
+      ? `<a href="mailto:${esc(LEGAL_CONTACT_EMAIL)}">${esc(LEGAL_CONTACT_EMAIL)}</a>`
+      : "the site administrator";
+
+    return `<div class="page legal-page">
+      <h1 class="page-title">Copyright &amp; legal</h1>
+      <p class="legal-intro">Aurum is a personal music player. It does not sell music, run ads or offer downloads. This page explains where the audio comes from, who owns it, and how a rights holder can have a catalogue entry removed.</p>
+      <p class="legal-updated">Last updated: October 2026</p>
+
+      <div class="np-card">
+        <div class="np-card-head"><h3>How playback works</h3></div>
+        <p class="legal-copy">Songs added from a YouTube link are played through YouTube's official embedded player (youtube-nocookie.com). The audio and video are streamed directly by YouTube. Aurum does not host, download, copy, store or re-upload that media — no audio file is created on this site.</p>
+      </div>
+
+      <div class="np-card">
+        <div class="np-card-head"><h3>Ownership and rights</h3></div>
+        <p class="legal-copy">All songs, recordings, compositions, artwork, thumbnails and trademarks remain the property of their respective artists, labels and rights holders. A catalogue entry only references a publicly available YouTube video. Nothing on this site transfers ownership or grants a licence to any third party.</p>
+      </div>
+
+      <div class="np-card">
+        <div class="np-card-head"><h3>YouTube API and credits</h3></div>
+        <p class="legal-copy">Song titles, artist names, album names, durations, thumbnails and descriptions shown for YouTube songs are retrieved from the public YouTube Data API and are used only to identify and credit the video. Playback happens inside YouTube's own player, so YouTube's Terms of Service and API Services Terms also apply.</p>
+      </div>
+
+      <div class="np-card">
+        <div class="np-card-head"><h3>Uploaded audio</h3></div>
+        <p class="legal-copy">Audio files uploaded directly by the site owner are stored in the site's own storage and are played from there. The site owner only uploads audio that they own or are licensed to distribute. If you believe an uploaded file infringes your rights, please use the removal request below.</p>
+      </div>
+
+      <div class="np-card">
+        <div class="np-card-head"><h3>Removal requests</h3></div>
+        <p class="legal-copy">If you are a rights holder (or an authorised representative) and want a catalogue entry removed, email ${contact} with:</p>
+        <ul class="legal-list">
+          <li>the YouTube link or the song title shown on Aurum,</li>
+          <li>the work you own and your relationship to it, and</li>
+          <li>a short statement that you hold the rights.</li>
+        </ul>
+        <p class="legal-copy" style="margin-top: 10px;">Verified requests are actioned promptly, usually within 48 hours. Removing an entry from Aurum does not remove the video from YouTube — the video remains under its uploader's control.</p>
+      </div>
+
+      <div class="np-card">
+        <div class="np-card-head"><h3>Disclaimer</h3></div>
+        <p class="legal-copy">Aurum is an independent personal project. It is not affiliated with, endorsed by or sponsored by YouTube, Google or any record label. All product names, logos and brands are the property of their respective owners.</p>
+      </div>
+
+      <div class="legal-contact">
+        <span>Copyright or removal request?</span>
+        ${contact}
+      </div>
+    </div>`;
+  }
+
+  function viewNotFound() {
+    return `<div class="page">
+      <h1 class="page-title">Page not found</h1>
+      <div class="empty-state">
+        <h3>We couldn't find that page</h3>
+        <p>It may have moved, or the link may be incomplete.</p>
+        <button class="pill pill-light" type="button" data-nav="/">Back home</button>
+      </div>
+    </div>`;
+  }
+
+  /* ── Sidebar library ───────────────────────────────────────── */
+  function renderLibrarySidebar() {
+    const list = $("#libList");
+    if (!list) return;
+    const filter = state.libFilter;
+
+    const html = libraryItems(filter)
+      .map((item) => {
+        if (filter === "artists") {
+          return `<button class="lib-item artist" type="button" title="${esc(item.name)}" data-nav="/artist/${encodeURIComponent(item.name)}">
+            <img src="${artistArt(item.name)}" alt="" loading="lazy" />
+            <span class="lib-item-meta">
+              <span class="lib-item-title">${esc(item.name)}</span>
+              <span class="lib-item-sub">Artist</span>
+            </span>
+          </button>`;
+        }
+        const isAlbum = item.type === "Album";
+        return `<button class="lib-item" type="button" title="${esc(item.title)}" data-nav="/playlist/${encodeURIComponent(item.id)}">
+          <img src="${itemArt(item)}" alt="" loading="lazy" />
+          <span class="lib-item-meta">
+            <span class="lib-item-title">${esc(item.title)}</span>
+            <span class="lib-item-sub">${isAlbum ? "Album" : "Playlist"} • ${esc(item.owner)}</span>
+          </span>
+        </button>`;
+      })
+      .join("");
+
+    list.innerHTML = html;
+  }
+
+  function syncFilterChips() {
+    $$("[data-filter]").forEach((chip) => {
+      const active = chip.dataset.filter === state.libFilter;
+      chip.classList.toggle("active", active);
+      if (chip.getAttribute("role") === "tab") chip.setAttribute("aria-selected", String(active));
+    });
+  }
+
+  /* ── Now playing panel ─────────────────────────────────────── */
+  let npKey = null;
+  let npDetailsOpen = false;
+  let npDetailsTrackId = null;
+
+  function renderNowPlaying(force = false) {
+    const body = $("#npBody");
+    if (!body) return;
+    const t = currentTrack();
+
+    if (!t) {
+      npKey = "none";
+      body.innerHTML = `<div class="np-empty">
+        <strong>Nothing playing yet</strong>
+        Pick a playlist, hit play, and the track details will show up here.
+      </div>`;
+      return;
+    }
+
+    // Details start collapsed for every new track, so the panel stays clean.
+    if (npDetailsTrackId !== t.id) {
+      npDetailsTrackId = t.id;
+      npDetailsOpen = false;
+    }
+
+    const artistName = primaryArtistName(t);
+    const key = `${t.id}:${p.index}:${state.liked.has(t.id)}:${state.following.has(artistName)}`;
+    if (!force && key === npKey) return;
+    npKey = key;
+
+    const liked = state.liked.has(t.id);
+    const info = artistInfo(artistName);
+    const following = state.following.has(artistName);
+    const artistPath = `/artist/${encodeURIComponent(artistName)}`;
+
+    const upcoming = p.queue
+      .slice(p.index + 1, p.index + 4)
+      .map(
+        (n, i) => `<button class="next-row" type="button" data-action="queue-jump" data-index="${p.index + 1 + i}">
+          <img src="${trackArt(n)}" alt="" loading="lazy" />
+          <span>
+            <span class="next-row-title">${esc(n.title)}</span>
+            <span class="next-row-artist">${esc(n.artist)}</span>
+          </span>
+        </button>`
+      )
+      .join("");
+
+    body.innerHTML = `<img class="np-cover" src="${trackArt(t)}" alt="${esc(t.album)} cover" />
+      <div class="np-head">
+        <div class="np-meta">
+          <div class="np-title">${esc(t.title)}</div>
+          <div class="np-artist" data-nav="${artistPath}">${esc(t.artist)}</div>
+        </div>
+        <button class="icon-btn round small ${liked ? "liked" : ""}" type="button" data-action="like" data-id="${t.id}" aria-label="${liked ? "Remove from" : "Save to"} Liked Songs" title="${liked ? "Remove from" : "Save to"} Liked Songs">
+          ${icon("heart", "sm")}
+        </button>
+      </div>
+
+      <div class="np-card">
+        <div class="np-card-head">
+          <h3>About the artist</h3>
+          <button type="button" data-nav="${artistPath}">View artist</button>
+        </div>
+        <div class="about-artist">
+          <img src="${artistArt(artistName)}" alt="" loading="lazy" />
+          <div>
+            <div class="about-artist-name">${esc(artistName)}</div>
+            <div class="about-artist-listeners">${info.formatted} monthly listeners</div>
+          </div>
+          <button class="follow-btn ${following ? "following" : ""}" type="button" data-action="follow" data-name="${esc(artistName)}" aria-pressed="${following}">${following ? "Following" : "Follow"}</button>
+        </div>
+      </div>
+
+      ${
+        isYT(t)
+          ? `<div class="np-card np-details">
+        <button class="np-details-toggle" type="button" data-action="toggle-details" aria-expanded="${npDetailsOpen}">
+          <span>Song details</span>
+          <span class="np-details-chev${npDetailsOpen ? " open" : ""}">${icon("arrow-right", "sm")}</span>
+        </button>
+        <div class="np-details-body"${npDetailsOpen ? "" : " hidden"}>
+          <div class="credits">
+            <div class="credit-row"><span class="role">Artist</span><span class="name">${esc(t.artist)}</span></div>
+            <div class="credit-row"><span class="role">Album</span><span class="name">${esc(t.album || "Single")}</span></div>
+            <div class="credit-row"><span class="role">Duration</span><span class="name">${fmtTime(t.duration)}</span></div>
+            <div class="credit-row"><span class="role">Source</span><span class="name">YouTube</span></div>
+          </div>
+          ${t.description ? `<p class="np-description">${esc(t.description)}</p>` : ""}
+          ${
+            t.url
+              ? `<a class="np-yt-link" href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">Watch on YouTube ${icon("arrow-right", "sm")}</a>`
+              : ""
+          }
+        </div>
+        <p class="np-source">Audio/video from YouTube · rights belong to the original artist, label and rights holders. <a class="np-legal-link" href="#/legal" data-nav="/legal">Legal</a></p>
+      </div>`
+          : `<div class="np-card">
+        <div class="np-card-head"><h3>Credits</h3></div>
+        <div class="credits">
+          <div class="credit-row"><span class="role">Artist</span><span class="name">${esc(t.artist)}</span></div>
+          <div class="credit-row"><span class="role">Album</span><span class="name">${esc(t.album || "Single")}</span></div>
+          <div class="credit-row"><span class="role">Duration</span><span class="name">${fmtTime(t.duration)}</span></div>
+          <div class="credit-row"><span class="role">Produced by</span><span class="name">Aurum Studios</span></div>
+        </div>
+      </div>`
+      }
+
+      ${
+        upcoming
+          ? `<div class="np-next"><h3>Next in queue</h3>${upcoming}</div>`
+          : `<div class="np-next"><h3>Next in queue</h3><p class="muted" style="font-size:13px">Nothing else queued.</p></div>`
+      }`;
+  }
+
+  /* ── Queue drawer ──────────────────────────────────────────── */
+  function renderQueue() {
+    const list = $("#queueList");
+    if (!list) return;
+    const t = currentTrack();
+
+    if (!t) {
+      list.innerHTML = `<div class="np-empty">Your queue is empty. Play something to get started.</div>`;
+      return;
+    }
+
+    const item = (track, i, active = false) => `<button class="queue-item ${active ? "active" : ""}" type="button" data-action="queue-jump" data-index="${i}">
+      <img src="${trackArt(track)}" alt="" loading="lazy" />
+      <span class="queue-item-meta">
+        <span class="queue-item-title">${esc(track.title)}</span>
+        <span class="queue-item-artist">${esc(track.artist)}</span>
+      </span>
+    </button>`;
+
+    const upNext = p.queue
+      .slice(p.index + 1)
+      .map((track, i) => item(track, p.index + 1 + i))
+      .join("");
+
+    list.innerHTML = `
+      <div class="queue-group-label">Now playing</div>
+      ${item(t, p.index, true)}
+      <div class="queue-group-label">Next up</div>
+      ${upNext || '<p class="muted" style="padding:8px;font-size:13px">Nothing else queued.</p>'}`;
+  }
+
+  /* ── Player UI sync ────────────────────────────────────────── */
+  const UI = {};
+
+  function updatePlayerBar() {
+    const t = currentTrack();
+    if (!t) return;
+    UI.barArt.src = trackArt(t);
+    UI.barArt.alt = t.album || t.title;
+    UI.barTitle.textContent = t.title;
+    UI.barArtist.textContent = t.artist;
+    const liked = state.liked.has(t.id);
+    UI.barLike.classList.toggle("liked", liked);
+    UI.barLike.setAttribute("aria-label", liked ? "Remove from Liked Songs" : "Save to Liked Songs");
+    UI.barLike.title = liked ? "Remove from Liked Songs" : "Save to Liked Songs";
+  }
+
+  function updateTransport() {
+    UI.playBtn.innerHTML = icon(p.playing ? "pause" : "play");
+    UI.playBtn.setAttribute("aria-label", p.playing ? "Pause" : "Play");
+    UI.playBtn.title = p.playing ? "Pause" : "Play";
+
+    UI.shuffleBtn.classList.toggle("active", p.shuffle);
+    UI.shuffleBtn.setAttribute("aria-label", p.shuffle ? "Disable shuffle" : "Enable shuffle");
+    UI.shuffleBtn.title = p.shuffle ? "Disable shuffle" : "Enable shuffle";
+
+    UI.repeatBtn.classList.toggle("active", p.repeat > 0);
+    const repeatLabel = p.repeat === 0 ? "Enable repeat" : p.repeat === 1 ? "Enable repeat one" : "Disable repeat";
+    UI.repeatBtn.setAttribute("aria-label", repeatLabel);
+    UI.repeatBtn.title = repeatLabel;
+
+    UI.npToggle.classList.toggle("active", UI.app.classList.contains("np-open"));
+    UI.npToggle.setAttribute("aria-pressed", String(UI.app.classList.contains("np-open")));
+  }
+
+  function updateProgress() {
+    const ratio = p.duration ? Math.min(1, p.pos / p.duration) : 0;
+    UI.progressFill.style.width = `${ratio * 100}%`;
+    UI.progressKnob.style.left = `${ratio * 100}%`;
+    UI.curTime.textContent = fmtTime(p.pos);
+    UI.durTime.textContent = fmtTime(p.duration);
+    UI.progressBar.setAttribute("aria-valuenow", String(Math.round(ratio * 100)));
+  }
+
+  function updateVolume() {
+    const shown = p.muted ? 0 : p.volume;
+    UI.volumeFill.style.width = `${shown * 100}%`;
+    UI.volumeKnob.style.left = `${shown * 100}%`;
+    UI.volumeBar.setAttribute("aria-valuenow", String(Math.round(shown * 100)));
+    UI.muteBtn.innerHTML = icon(p.muted || p.volume === 0 ? "mute" : "volume", "sm");
+    UI.muteBtn.setAttribute("aria-label", p.muted || p.volume === 0 ? "Unmute" : "Mute");
+    UI.muteBtn.title = p.muted || p.volume === 0 ? "Unmute" : "Mute";
+  }
+
+  function updateLikeUI() {
+    const t = currentTrack();
+    $$(".row-like[data-id]").forEach((btn) => {
+      const liked = state.liked.has(btn.dataset.id);
+      btn.classList.toggle("liked", liked);
+      btn.setAttribute("aria-label", liked ? "Remove from Liked Songs" : "Save to Liked Songs");
+    });
+    if (t) {
+      const liked = state.liked.has(t.id);
+      UI.barLike.classList.toggle("liked", liked);
+    }
+    $$('#npBody [data-action="like"]').forEach((btn) => {
+      const liked = state.liked.has(btn.dataset.id);
+      btn.classList.toggle("liked", liked);
+    });
+  }
+
+  function updateActiveRows() {
+    const t = currentTrack();
+    $$(".track-row[data-track-id]").forEach((row) => {
+      const active = Boolean(t && row.dataset.trackId === t.id);
+      row.classList.toggle("active", active);
+      row.classList.toggle("playing", active && p.playing);
+    });
+    $$(".song-row[data-track-id]").forEach((row) => {
+      const active = Boolean(t && row.dataset.trackId === t.id);
+      row.classList.toggle("playing", active && p.playing);
+    });
+  }
+
+  function updatePlayingButtons() {
+    const ctx = currentContext();
+    const setBtn = (btn, on) => {
+      btn.innerHTML = icon(on ? "pause" : "play");
+      const label = btn.dataset.label || "";
+      const verb = on ? "Pause" : "Play";
+      btn.setAttribute("aria-label", label ? `${verb} ${label}` : verb);
+      btn.title = label ? `${verb} ${label}` : verb;
+    };
+    $$(".play-fab[data-id]").forEach((btn) => {
+      const on = Boolean(p.playing && btn.dataset.id === ctx);
+      btn.classList.toggle("is-playing", on);
+      setBtn(btn, on);
+    });
+    $$(".big-play[data-id]").forEach((btn) => {
+      setBtn(btn, Boolean(p.playing && btn.dataset.id === ctx));
+    });
+    const artistBtn = $(".big-play[data-action='artist-play']");
+    if (artistBtn) {
+      setBtn(artistBtn, Boolean(p.playing && ctx === `artist:${artistBtn.dataset.name}`));
+    }
+    const genreBtn = $(".big-play[data-action='play-genre']");
+    if (genreBtn) {
+      setBtn(genreBtn, Boolean(p.playing && ctx === `genre:${genreBtn.dataset.name}`));
+    }
+  }
+
+  function updateAll() {
+    updatePlayerBar();
+    updateTransport();
+    updateProgress();
+    updateVolume();
+    updateActiveRows();
+    updatePlayingButtons();
+    applyVideoMode();
+    renderNowPlaying();
+    renderQueue();
+  }
+
+  /* ── Toasts ────────────────────────────────────────────────── */
+  function toast(msg, kind = "info") {
+    const host = $("#toasts");
+    if (!host) return;
+    const el = document.createElement("div");
+    el.className = `toast ${kind === "check" ? "check" : ""}`;
+    el.innerHTML = `${icon(kind === "check" ? "check" : "bell", "sm")}<span>${esc(msg)}</span>`;
+    host.append(el);
+    setTimeout(() => {
+      el.classList.add("out");
+      setTimeout(() => el.remove(), 260);
+    }, 2600);
+  }
+
+  /* ── Routing ───────────────────────────────────────────────── */
+  function readRoute() {
+    const raw = location.hash.replace(/^#/, "");
+    return (raw.split("?")[0] || "/").replace(/\/+$/, "") || "/";
+  }
+
+  function navigate(path) {
+    const target = "#" + path;
+    if (location.hash === target) {
+      render();
+      return;
+    }
+    location.hash = target;
+  }
+
+  function setActiveNav(path) {
+    const inGenre = path.startsWith("/genre/");
+    $$(".nav-link[data-nav], .mobile-nav-item[data-nav]").forEach((link) => {
+      const target = link.dataset.nav;
+      const active =
+        target === "/"
+          ? path === "/"
+          : path === target || path.startsWith(target + "/") || (inGenre && target === "/search");
+      link.classList.toggle("active", active);
+    });
+  }
+
+  function render() {
+    const path = readRoute();
+
+    if (path === "/") {
+      view.innerHTML = viewHome();
+      document.title = "Aurum — Web Player";
+    } else if (path === "/search") {
+      view.innerHTML = viewSearchPage();
+      document.title = state.query ? `${state.query} — Aurum` : "Search — Aurum";
+    } else if (path === "/songs") {
+      view.innerHTML = viewAllSongs();
+      document.title = "All Songs — Aurum";
+    } else if (path === "/library") {
+      view.innerHTML = viewLibraryPage();
+      document.title = "Your Library — Aurum";
+    } else if (path === "/profile") {
+      view.innerHTML = viewProfile();
+      document.title = "Your profile — Aurum";
+    } else if (path.startsWith("/playlist/")) {
+      const id = decodeURIComponent(path.slice("/playlist/".length));
+      const item = getItem(id);
+      view.innerHTML = viewPlaylist(id);
+      document.title = item ? `${item.title} — Aurum` : "Not found — Aurum";
+    } else if (path.startsWith("/artist/")) {
+      const name = decodeURIComponent(path.slice("/artist/".length));
+      view.innerHTML = viewArtist(name);
+      document.title = (window.ARTIST_BY_NAME||{})[name] ? `${name} — Aurum` : "Not found — Aurum";
+    } else if (path.startsWith("/genre/")) {
+      const name = decodeURIComponent(path.slice("/genre/".length));
+      view.innerHTML = viewGenre(name);
+      document.title = (window.GENRE_BY_NAME||{})[name] ? `${name} — Aurum` : "Not found — Aurum";
+    } else if (path === "/legal") {
+      view.innerHTML = viewLegal();
+      document.title = "Copyright & legal — Aurum";
+    } else {
+      view.innerHTML = viewNotFound();
+      document.title = "Not found — Aurum";
+    }
+
+    setActiveNav(path);
+    syncFilterChips();
+    mainScroll.scrollTop = 0;
+    updateActiveRows();
+    updatePlayingButtons();
+    updateLikeUI();
+  }
+
+  function renderViewOnly() {
+    const path = readRoute();
+    if (path === "/search") {
+      view.innerHTML = viewSearchPage();
+      document.title = state.query ? `${state.query} — Aurum` : "Search — Aurum";
+      updateActiveRows();
+      updatePlayingButtons();
+    }
+  }
+
+  /* ── Actions ───────────────────────────────────────────────── */
+  function playContext(id, index = 0) {
+    const item = getItem(id);
+    if (!item || !item.tracks.length) {
+      toast("This playlist is empty");
+      return;
+    }
+    setQueue(item.tracks, index, id);
+    play();
+  }
+
+  function playContextTrack(contextId, index) {
+    if (currentContext() === contextId && p.index === index && p.queue.length) {
+      togglePlay();
+      return;
+    }
+    if (contextId === "search") {
+      if (!state.searchTracks.length) return;
+      setQueue(state.searchTracks, index, "search");
+      play();
+      return;
+    }
+    if (contextId.startsWith("artist:")) {
+      const name = contextId.slice("artist:".length);
+      const tracks = tracksByArtist(name);
+      setQueue(tracks, index, contextId);
+      play();
+      return;
+    }
+    if (contextId.startsWith("genre:")) {
+      const name = contextId.slice("genre:".length);
+      const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
+      setQueue(tracks, index, contextId);
+      play();
+      return;
+    }
+    const item = getItem(contextId);
+    if (!item) return;
+    setQueue(item.tracks, index, contextId);
+    play();
+  }
+
+  function playSearchTrack(id) {
+    const tracks = state.searchTracks.length ? state.searchTracks : (window.TRACKS||[]).filter((t) => t.id === id);
+    const i = tracks.findIndex((t) => t.id === id);
+    if (i < 0) return;
+    setQueue(tracks, i, "search");
+    play();
+  }
+
+  function playArtist(name) {
+    const tracks = tracksByArtist(name);
+    if (!tracks.length) return;
+    setQueue(tracks, 0, `artist:${name}`);
+    play();
+  }
+
+  function playGenre(name) {
+    const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
+    if (!tracks.length) return;
+    setQueue(tracks, 0, `genre:${name}`);
+    play();
+  }
+
+  /* ── Accounts: likes + user playlists ──────────────────────── */
+  const authUser = () => (window.WavelyAuth && window.WavelyAuth.user) || null;
+
+  async function persistLike(trackId, liked) {
+    const user = authUser();
+    const client = window.supabaseClient;
+    if (!user || !client) return;
+
+    const req = liked
+      ? client.from("likes").upsert([{ user_id: user.id, track_id: trackId }],
+          { onConflict: "user_id,track_id" })
+      : client.from("likes").delete().eq("user_id", user.id).eq("track_id", trackId);
+    const { error } = await req;
+    if (error) {
+      console.error("Like save failed:", error.message);
+      toast("Like save nahi hua: " + (error.message || "unknown error"));
+    }
+  }
+
+  async function syncGuestLikes(user) {
+    const guest = loadLiked();
+    const client = window.supabaseClient;
+    if (!guest.length || !client) return;
+
+    try {
+      await client.from("likes").upsert(
+        guest.map((id) => ({ user_id: user.id, track_id: id })),
+        { onConflict: "user_id,track_id", ignoreDuplicates: true }
+      );
+      try { localStorage.removeItem(LS_LIKED); } catch (_) {}
+    } catch (err) {
+      console.error("Guest likes sync failed:", err);
+    }
+  }
+
+  function closePlaylistModal() {
+    const modal = $("#playlistModal");
+    if (!modal) return;
+    if (window.ModalFocus) window.ModalFocus.close(modal);
+    else modal.hidden = true;
+  }
+
+  function openPlaylistModal(opener = null) {
+    if (!authUser()) {
+      window.WavelyAuth?.openModal("login", opener);
+      return;
+    }
+
+    const modal = $("#playlistModal");
+    if (!modal) return;
+
+    const input = $("#playlistName");
+    const msg = $("#playlistMsg");
+    if (input) input.value = "";
+    if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+
+    if (window.ModalFocus) {
+      window.ModalFocus.open(modal, {
+        initialFocus: input,
+        onClose: closePlaylistModal,
+        returnFocus: opener
+      });
+    } else {
+      modal.hidden = false;
+      setTimeout(() => input?.focus(), 40);
+    }
+  }
+
+  async function createPlaylist(title) {
+    const user = authUser();
+    const client = window.supabaseClient;
+    if (!user || !client) throw new Error("Pehle log in karo");
+
+    const { data, error } = await client.from("playlists").insert([{
+      title,
+      user_id: user.id,
+      owner: window.WavelyAuth.displayName(user) || "You"
+    }]).select("id");
+    if (error) throw new Error(error.message || String(error));
+
+    if (typeof window.reloadSupabaseData === "function") await window.reloadSupabaseData();
+    renderLibrarySidebar();
+    render();
+    toast(`Playlist "${title}" ban gayi`, "check");
+    return data;
+  }
+
+  let pendingTrackId = null;
+
+  function closeAddModal() {
+    const modal = $("#addModal");
+    if (!modal) return;
+    if (window.ModalFocus) window.ModalFocus.close(modal);
+    else modal.hidden = true;
+  }
+
+  function openAddToPlaylist(trackId, opener = null) {
+    const user = authUser();
+    if (!user) {
+      window.WavelyAuth?.openModal("login", opener);
+      return;
+    }
+
+    const modal = $("#addModal");
+    const list = $("#addList");
+    if (!modal || !list) return;
+
+    pendingTrackId = trackId;
+
+    const msg = $("#addMsg");
+    if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+
+    const mine = (window.PLAYLISTS || []).filter((pl) => pl.user_id === user.id);
+    list.innerHTML = mine.length
+      ? mine.map((pl) => `<button class="add-item" type="button" data-playlist-id="${esc(pl.id)}">${icon("plus", "sm")}<span>${esc(pl.title)}</span></button>`).join("")
+      : `<p class="add-empty">Abhi koi playlist nahi — pehle "Create playlist" se ek banao.</p>`;
+
+    if (window.ModalFocus) {
+      window.ModalFocus.open(modal, {
+        initialFocus: list.querySelector("[data-playlist-id]"),
+        onClose: closeAddModal,
+        returnFocus: opener
+      });
+    } else {
+      modal.hidden = false;
+    }
+  }
+
+  async function addTrackToPlaylist(playlistId, trackId) {
+    const client = window.supabaseClient;
+    if (!client || !playlistId || !trackId) return;
+
+    const { data: last } = await client
+      .from("playlist_tracks")
+      .select("position")
+      .eq("playlist_id", playlistId)
+      .order("position", { ascending: false })
+      .limit(1);
+
+    const position = (last && last.length ? last[0].position : -1) + 1;
+
+    const { error } = await client
+      .from("playlist_tracks")
+      .insert([{ playlist_id: playlistId, track_id: trackId, position }]);
+    if (error) throw error;
+
+    if (typeof window.reloadSupabaseData === "function") await window.reloadSupabaseData();
+    render();
+    toast("Playlist me add ho gaya", "check");
+  }
+
+  function bindAccountUI() {
+    $("#playlistClose")?.addEventListener("click", closePlaylistModal);
+    $("#playlistModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "playlistModal") closePlaylistModal();
+    });
+    $("#playlistForm")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = $("#playlistName");
+      const msg = $("#playlistMsg");
+      const title = (input?.value || "").trim();
+      if (!title) return;
+
+      try {
+        await createPlaylist(title);
+        closePlaylistModal();
+      } catch (err) {
+        if (msg) {
+          msg.textContent = err?.message || String(err);
+          msg.className = "auth-msg error";
+        }
+      }
+    });
+
+    $("#addClose")?.addEventListener("click", closeAddModal);
+    $("#addModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "addModal") closeAddModal();
+    });
+    $("#addList")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-playlist-id]");
+      if (!btn) return;
+
+      try {
+        await addTrackToPlaylist(btn.dataset.playlistId, pendingTrackId);
+        closeAddModal();
+      } catch (err) {
+        const msg = $("#addMsg");
+        if (msg) {
+          msg.textContent = err?.message || String(err);
+          msg.className = "auth-msg error";
+        }
+      }
+    });
+
+    // Escape, Tab trapping and focus restore live in js/modal-focus.js.
+  }
+
+  function handleAction(el) {
+    const action = el.dataset.action;
+    switch (action) {
+      case "toast":
+        toast(el.dataset.msg || "");
+        break;
+      case "login":
+        window.WavelyAuth?.openModal("login", el);
+        break;
+      case "logout":
+        window.WavelyAuth?.signOut();
+        break;
+      case "open-profile":
+        navigate("/profile");
+        break;
+      case "create-playlist":
+        openPlaylistModal(el);
+        break;
+      case "add-to-playlist":
+        openAddToPlaylist(el.dataset.id, el);
+        break;
+      case "play-track-card": {
+        const id = el.dataset.trackId || el.dataset.id;
+        if (!id) break;
+        const tracks = (window.TRACKS||[]).filter(t=>t.id===id);
+        if (!tracks.length) break;
+        if (p.queue.length && currentTrack() && currentTrack().id === id) togglePlay();
+        else { setQueue(tracks, 0, "recent"); play(); }
+        break;
+      }
+      case "play-context": {
+        const id = el.dataset.id;
+        if (currentContext() === id) togglePlay();
+        else playContext(id);
+        break;
+      }
+      case "play-track":
+        playContextTrack(el.dataset.context, Number(el.dataset.index) || 0);
+        break;
+      case "play-search": {
+        const track = currentTrack();
+        if (track && track.id === el.dataset.id && currentContext() === "search") togglePlay();
+        else playSearchTrack(el.dataset.id);
+        break;
+      }
+      case "artist-play": {
+        const name = el.dataset.name;
+        if (currentContext() === `artist:${name}`) togglePlay();
+        else playArtist(name);
+        break;
+      }
+      case "play-genre": {
+        const name = el.dataset.name;
+        if (currentContext() === `genre:${name}`) togglePlay();
+        else playGenre(name);
+        break;
+      }
+      case "like":
+        toggleLike(el.dataset.id);
+        break;
+      case "toggle-details":
+        npDetailsOpen = !npDetailsOpen;
+        renderNowPlaying(true);
+        break;
+      case "follow":
+        toggleFollow(el.dataset.name);
+        break;
+      case "queue-jump": {
+        const i = Number(el.dataset.index);
+        if (Number.isInteger(i)) {
+          loadIndex(i, true);
+          p.playing = true;
+          updateAll();
+        }
+        break;
+      }
+    }
+  }
+
+  /* ── Slider bars ───────────────────────────────────────────── */
+  function bindBar(bar, onChange) {
+    let dragging = false;
+    const ratio = (e) => {
+      const r = bar.getBoundingClientRect();
+      return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    };
+
+    bar.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      bar.classList.add("dragging");
+      bar.setPointerCapture?.(e.pointerId);
+      onChange(ratio(e), true);
+    });
+    bar.addEventListener("pointermove", (e) => {
+      if (dragging) onChange(ratio(e), true);
+    });
+    const end = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      bar.classList.remove("dragging");
+      onChange(ratio(e), false);
+    };
+    bar.addEventListener("pointerup", end);
+    bar.addEventListener("pointercancel", end);
+
+    bar.addEventListener("keydown", (e) => {
+      const current = Number(bar.getAttribute("aria-valuenow")) / 100;
+      let next = null;
+      if (e.key === "ArrowRight" || e.key === "ArrowUp") next = current + 0.05;
+      if (e.key === "ArrowLeft" || e.key === "ArrowDown") next = current - 0.05;
+      if (e.key === "Home") next = 0;
+      if (e.key === "End") next = 1;
+      if (next === null) return;
+      e.preventDefault();
+      onChange(Math.min(1, Math.max(0, next)), false);
+    });
+  }
+
+  /* ── Wiring ────────────────────────────────────────────────── */
+  function cacheUI() {
+    UI.app = $("#app");
+    UI.mainScroll = $("#mainScroll");
+    UI.view = $("#view");
+    UI.barArt = $("#barArt");
+    UI.barTitle = $("#barTitle");
+    UI.barArtist = $("#barArtist");
+    UI.barLike = $("#barLike");
+    UI.videoBtn = $("#videoBtn");
+    UI.playBtn = $("#playBtn");
+    UI.prevBtn = $("#prevBtn");
+    UI.nextBtn = $("#nextBtn");
+    UI.shuffleBtn = $("#shuffleBtn");
+    UI.repeatBtn = $("#repeatBtn");
+    UI.progressBar = $("#progressBar");
+    UI.progressFill = $("#progressFill");
+    UI.progressKnob = $("#progressKnob");
+    UI.curTime = $("#curTime");
+    UI.durTime = $("#durTime");
+    UI.volumeBar = $("#volumeBar");
+    UI.volumeFill = $("#volumeFill");
+    UI.volumeKnob = $("#volumeKnob");
+    UI.muteBtn = $("#muteBtn");
+    UI.npToggle = $("#npToggle");
+    UI.searchInput = $("#searchInput");
+    UI.searchForm = $("#searchForm");
+    UI.npBody = $("#npBody");
+  }
+
+  function bindEvents() {
+    document.addEventListener("click", (e) => {
+      const el = e.target.closest("[data-action], [data-nav]");
+      if (!el) return;
+
+      if (el.hasAttribute("data-action")) {
+        handleAction(el);
+        return;
+      }
+      e.preventDefault();
+      navigate(el.dataset.nav);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target.matches('[role="link"][data-nav]')) {
+        e.preventDefault();
+        navigate(e.target.dataset.nav);
+      }
+    });
+
+    window.addEventListener("hashchange", render);
+
+    $("#backBtn").addEventListener("click", () => history.back());
+    $("#forwardBtn").addEventListener("click", () => history.forward());
+
+    UI.searchForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      navigate("/search");
+    });
+
+    UI.searchInput.addEventListener("input", () => {
+      state.query = UI.searchInput.value;
+      if (readRoute() === "/search") renderViewOnly();
+      else navigate("/search");
+    });
+
+    $("#browseBtn").addEventListener("click", () => {
+      navigate("/search");
+      UI.searchInput.focus();
+    });
+
+    $("#libChips").addEventListener("click", (e) => {
+      const chip = e.target.closest("[data-filter]");
+      if (!chip) return;
+      state.libFilter = chip.dataset.filter;
+      syncFilterChips();
+      renderLibrarySidebar();
+      if (readRoute() === "/library") render();
+    });
+
+    document.addEventListener("click", (e) => {
+      const chip = e.target.closest(".page-chips [data-filter]");
+      if (!chip) return;
+      state.libFilter = chip.dataset.filter;
+      syncFilterChips();
+      renderLibrarySidebar();
+      render();
+    });
+
+    UI.playBtn.addEventListener("click", togglePlay);
+    UI.prevBtn.addEventListener("click", prev);
+    UI.nextBtn.addEventListener("click", () => next(false));
+    UI.barLike.addEventListener("click", () => toggleLike(currentTrack()?.id));
+    UI.videoBtn.addEventListener("click", () => {
+      state.videoOn = !state.videoOn;
+      try {
+        localStorage.setItem(LS_VIDEO, state.videoOn ? "1" : "0");
+      } catch (_) {}
+      applyVideoMode();
+      // Turning video on with a paused track resumes music too — the video
+      // panel alone shouldn't look like it opened without playing.
+      if (state.videoOn && isYT(currentTrack()) && !p.playing) play();
+      toast(state.videoOn ? "Video on" : "Audio only", "check");
+    });
+
+    UI.shuffleBtn.addEventListener("click", () => {
+      p.shuffle = !p.shuffle;
+      updateTransport();
+      toast(p.shuffle ? "Shuffle on" : "Shuffle off");
+    });
+
+    UI.repeatBtn.addEventListener("click", () => {
+      p.repeat = (p.repeat + 1) % 3;
+      updateTransport();
+      toast(p.repeat === 0 ? "Repeat off" : p.repeat === 1 ? "Repeat all" : "Repeat one");
+    });
+
+    $("#queueBtn").addEventListener("click", () => {
+      const open = UI.app.classList.toggle("queue-open");
+      $("#queueDrawer").setAttribute("aria-hidden", String(!open));
+      renderQueue();
+    });
+    $("#npQueueBtn").addEventListener("click", () => {
+      UI.app.classList.add("queue-open");
+      $("#queueDrawer").setAttribute("aria-hidden", "false");
+      renderQueue();
+    });
+    $("#queueClose").addEventListener("click", () => {
+      UI.app.classList.remove("queue-open");
+      $("#queueDrawer").setAttribute("aria-hidden", "true");
+    });
+
+    UI.npToggle.addEventListener("click", () => {
+      const open = UI.app.classList.toggle("np-open");
+      UI.npToggle.classList.toggle("active", open);
+      UI.npToggle.setAttribute("aria-pressed", String(open));
+      renderNowPlaying(true);
+    });
+    $("#npClose").addEventListener("click", () => {
+      UI.app.classList.remove("np-open");
+      UI.npToggle.classList.remove("active");
+      UI.npToggle.setAttribute("aria-pressed", "false");
+    });
+
+    $("#muteBtn").addEventListener("click", toggleMute);
+    $("#lyricsBtn").addEventListener("click", () =>
+      toast("Lyrics aren't available for this demo track")
+    );
+    $("#fullscreenBtn").addEventListener("click", () => {
+      if (document.fullscreenElement) document.exitFullscreen?.();
+      else document.documentElement.requestFullscreen?.().catch(() => toast("Full screen isn't available"));
+    });
+
+    bindBar(UI.progressBar, (ratio, moving) => seekTo(ratio, moving));
+    bindBar(UI.volumeBar, (ratio) => setVolume(ratio));
+
+    const avatar = $("#avatarBtn");
+    const menu = $("#accountMenu");
+    avatar.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = menu.hidden;
+      menu.hidden = !open;
+      avatar.setAttribute("aria-expanded", String(open));
+    });
+    document.addEventListener("click", (e) => {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== avatar) {
+        menu.hidden = true;
+        avatar.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      // Never drive the player with a dialog open — focus may sit on one of its
+      // buttons, and typing "m"/"l" there should not mute or like anything.
+      if (document.body.classList.contains("modal-open")) return;
+
+      const tag = e.target.tagName;
+      if (/INPUT|TEXTAREA|SELECT/.test(tag) || e.target.isContentEditable) return;
+
+      if (e.code === "Space" && !/BUTTON|A/.test(tag)) {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key.toLowerCase() === "m") {
+        toggleMute();
+      } else if (e.key.toLowerCase() === "l") {
+        if (currentTrack()) toggleLike(currentTrack().id);
+      } else if (e.shiftKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+        e.preventDefault();
+        if (!p.duration) return;
+        const delta = e.key === "ArrowRight" ? 5 : -5;
+        seekTo(Math.min(1, Math.max(0, (p.pos + delta) / p.duration)), false);
+      }
+    });
+
+    // Keep playback position moving: poll the YouTube embed first, then
+    // real audio, then the simulated clock.
+    setInterval(() => {
+      if (isYT(currentTrack())) {
+        if (!p.playing || p.seeking || !ytPlayer) return;
+        p.pos = ytPlayer.getCurrentTime() || 0;
+        const d = ytPlayer.getDuration();
+        if (d) p.duration = d;
+        if (p.duration) updateProgress();
+        return;
+      }
+      if (!p.playing || p.seeking || hasAudio() || !p.duration) return;
+      p.pos += 0.25;
+      if (p.pos >= p.duration) {
+        p.pos = p.duration;
+        next(true);
+        return;
+      }
+      updateProgress();
+    }, 250);
+  }
+
+  /* ── Boot ──────────────────────────────────────────────────── */
+  function init() {
+    cacheUI();
+    hydrateIcons();
+    bindEvents();
+    bindAccountUI();
+    renderLibrarySidebar();
+    syncFilterChips();
+
+    if (!location.hash) history.replaceState(null, "", "#/");
+
+    // Preload the first real playlist/album so the player bar shows a track
+    // before the first click (the old demo catalogue had a fixed "discover").
+    const firstItem = (window.PLAYLISTS || [])[0] || (window.ALBUMS || [])[0] || null;
+    const initial = firstItem ? getItem(firstItem.id) : null;
+    if (initial && initial.tracks.length) setQueue(initial.tracks, 0, initial.id);
+
+    updateVolume();
+    synth?.setVolume(p.muted ? 0 : p.volume);
+    if (window.innerWidth >= 1240) UI.app.classList.add("np-open");
+    render();
+    renderNowPlaying(true);
+    renderQueue();
+
+    booted = true;
+    if (pendingAuthRefresh || authUser()) refreshUserState();
+
+    // Pre-warm the YouTube embed: by the time the first song is clicked the
+    // player already exists, so one click plays instead of select-then-play.
+    ensureYTPlayer();
+
+    // Autostart synth if browser allows, or resume on first user gesture.
+    document.addEventListener("click", () => {
+      if (p.playing && currentTrack() && !currentTrack().src && !isYT(currentTrack()) && synth) {
+        synth.play(synthSeed(currentTrack()));
+        synth.setVolume(p.muted ? 0 : p.volume);
+      }
+    }, { once: true });
+  }
+
+  // Declared before start(): init() assigns these, and a boot that runs
+  // synchronously would otherwise hit the temporal dead zone.
+  let booted = false;
+  let pendingAuthRefresh = false;
+
+  function start() {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  }
+
+  if ((window.TRACKS && window.TRACKS.length > 0) || (typeof window.supabaseClient === 'undefined')) {
+    start();
+  } else {
+    window.addEventListener("supabaseDataLoaded", start, { once: true });
+  }
+
+  async function refreshUserState() {
+    if (!booted) {
+      pendingAuthRefresh = true;
+      return;
+    }
+
+    const user = authUser();
+
+    try {
+      if (user) await syncGuestLikes(user);
+    } catch (err) {
+      console.error(err);
+    }
+
+    if (typeof window.reloadSupabaseData === 'function') await window.reloadSupabaseData();
+
+    state.liked = user ? new Set(window.USER_LIKES || []) : loadLiked();
+    npKey = null;
+    renderLibrarySidebar();
+    render();
+    renderNowPlaying(true);
+    renderQueue();
+  }
+
+  window.addEventListener('authChanged', refreshUserState);
+
+  window.addEventListener("supabaseDataLoaded", () => {
+    try {
+      if (typeof renderLibrarySidebar === 'function') renderLibrarySidebar();
+      if (typeof syncFilterChips === 'function') syncFilterChips();
+      if (typeof render === 'function') render();
+      if (typeof renderNowPlaying === 'function') renderNowPlaying(true);
+      if (typeof renderQueue === 'function') renderQueue();
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && typeof window.reloadSupabaseData === 'function') {
+      window.reloadSupabaseData();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (typeof window.reloadSupabaseData === 'function') {
+      window.reloadSupabaseData();
+    }
+  });
+})();

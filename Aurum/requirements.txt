@@ -1,0 +1,5 @@
+# main.py uses only the Python standard library (urllib, http.server),
+# so there is nothing to install:  python3 main.py serve
+#
+# If you switch the YouTube calls back to `requests`, install it with:
+#   pip install requests>=2.31
