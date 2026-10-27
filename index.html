@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#08080a" />
-  <meta name="description" content="Aurum — a premium noir + gold music player for the songs in your library, including tracks added from YouTube links." />
-  <title>Aurum — Premium Music Player</title>
+  <meta name="theme-color" content="#050506" />
+  <meta name="description" content="Aurum — a noir and gold music room for the songs in your library, including tracks added from YouTube links." />
+  <title>Aurum — Music Room</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet" />
@@ -14,7 +14,7 @@
 </head>
 <body>
   <div class="app" id="app">
-    <!-- ── Top bar ─────────────────────────────────────────────── -->
+    <!-- ── Masthead ────────────────────────────────────────────── -->
     <header class="topbar">
       <a class="brand" href="#/" data-nav="/" aria-label="Aurum home">
         <span class="brand-mark" aria-hidden="true">
@@ -42,7 +42,7 @@
 
       <form class="search" id="searchForm" role="search" autocomplete="off">
         <i class="search-icon" data-icon="search" data-size="sm"></i>
-        <input class="search-input" id="searchInput" type="text" placeholder="What do you want to play?" aria-label="Search" spellcheck="false" />
+        <input class="search-input" id="searchInput" type="text" placeholder="Search the room — songs, artists, albums" aria-label="Search" spellcheck="false" />
         <span class="search-sep" aria-hidden="true"></span>
         <button class="search-browse" id="browseBtn" type="button" aria-label="Browse" title="Browse">
           <i data-icon="music" data-size="sm"></i>
@@ -75,69 +75,74 @@
 
     <!-- ── Workspace ───────────────────────────────────────────── -->
     <div class="body" id="body">
-      <!-- Sidebar -->
-      <aside class="sidebar" id="sidebar">
-        <nav class="panel nav-panel" aria-label="Main">
-          <a class="nav-link active" href="#/" data-nav="/" title="Home">
-            <i data-icon="home"></i><span class="nav-label">Home</span>
-          </a>
-          <a class="nav-link" href="#/search" data-nav="/search" title="Search">
-            <i data-icon="search"></i><span class="nav-label">Search</span>
-          </a>
-          <a class="nav-link" href="#/songs" data-nav="/songs" title="All Songs">
-            <i data-icon="music"></i><span class="nav-label">All Songs</span>
-          </a>
-        </nav>
-
-        <section class="panel library-panel" aria-label="Your Library">
-          <div class="lib-head">
-            <button class="lib-title" type="button" data-nav="/library" title="Your Library">
-              <i data-icon="library"></i><span>Your Library</span>
-            </button>
-            <div class="lib-head-actions">
-              <button class="icon-btn round" type="button" aria-label="Create playlist" title="Create playlist" data-action="create-playlist">
-                <i data-icon="plus" data-size="sm"></i>
-              </button>
-              <button class="icon-btn round" type="button" aria-label="Expand library" title="Expand library" data-action="toast" data-msg="Library layout is already expanded">
-                <i data-icon="arrow-right" data-size="sm"></i>
-              </button>
-            </div>
-          </div>
-
-          <div class="chips" id="libChips" role="tablist" aria-label="Library filters">
-            <button class="chip active" type="button" role="tab" aria-selected="true" data-filter="playlists">Playlists</button>
-            <button class="chip" type="button" role="tab" aria-selected="false" data-filter="albums">Albums</button>
-            <button class="chip" type="button" role="tab" aria-selected="false" data-filter="artists">Artists</button>
-          </div>
-
-          <div class="lib-list" id="libList"></div>
-
-          <div class="lib-footer">
-            <div class="lib-links">
-              <a href="#/legal" data-nav="/legal">Legal</a>
-              <a href="#/privacy" data-nav="/privacy">Privacy Center</a>
-              <a href="#/privacy-policy" data-nav="/privacy-policy">Privacy Policy</a>
-              <a href="#/cookies" data-nav="/cookies">Cookies</a>
-              <a href="#/about-ads" data-nav="/about-ads">About Ads</a>
-            </div>
-            <button class="lang-btn" type="button" data-action="toast" data-msg="Language picker isn't part of this demo">
-              <i data-icon="globe" data-size="sm"></i> English
-            </button>
-          </div>
-        </section>
+      <!-- Spine: the navigation, set like a book spine -->
+      <aside class="spine" id="sidebar" aria-label="Main">
+        <span class="spine-cap" aria-hidden="true">Aurum</span>
+        <a class="nav-link active" href="#/" data-nav="/" title="Home">
+          <i data-icon="home"></i><span class="nav-label">Home</span>
+        </a>
+        <a class="nav-link" href="#/search" data-nav="/search" title="Search">
+          <i data-icon="search"></i><span class="nav-label">Search</span>
+        </a>
+        <a class="nav-link" href="#/songs" data-nav="/songs" title="All Songs">
+          <i data-icon="music"></i><span class="nav-label">All Songs</span>
+        </a>
+        <a class="nav-link" href="#/library" data-nav="/library" title="Your Library">
+          <i data-icon="library"></i><span class="nav-label">Library</span>
+        </a>
+        <span class="spine-tail" aria-hidden="true">Est. 2026</span>
       </aside>
+
+      <!-- The Crate: your library, filed like sleeves -->
+      <section class="crate" aria-label="Your Library">
+        <div class="crate-head">
+          <h2 class="crate-title">The Crate</h2>
+          <button class="icon-btn round" type="button" aria-label="Create playlist" title="Create playlist" data-action="create-playlist">
+            <i data-icon="plus" data-size="sm"></i>
+          </button>
+        </div>
+
+        <div class="chips" id="libChips" role="tablist" aria-label="Library filters">
+          <button class="chip active" type="button" role="tab" aria-selected="true" data-filter="playlists">Playlists</button>
+          <button class="chip" type="button" role="tab" aria-selected="false" data-filter="albums">Albums</button>
+          <button class="chip" type="button" role="tab" aria-selected="false" data-filter="artists">Artists</button>
+        </div>
+
+        <div class="lib-list" id="libList"></div>
+
+        <div class="lib-footer">
+          <div class="lib-links">
+            <a href="#/legal" data-nav="/legal">Legal</a>
+            <a href="#/privacy" data-nav="/privacy">Privacy Center</a>
+            <a href="#/privacy-policy" data-nav="/privacy-policy">Privacy Policy</a>
+            <a href="#/cookies" data-nav="/cookies">Cookies</a>
+            <a href="#/about-ads" data-nav="/about-ads">About Ads</a>
+          </div>
+          <button class="lang-btn" type="button" data-action="toast" data-msg="Language picker isn't part of this demo">
+            <i data-icon="globe" data-size="sm"></i> English
+          </button>
+        </div>
+      </section>
 
       <!-- Main view -->
       <main class="main" id="main">
         <div class="main-scroll" id="mainScroll">
           <div class="view" id="view"></div>
+          <footer class="site-foot">
+            <a href="#/legal" data-nav="/legal">Legal</a>
+            <a href="#/privacy" data-nav="/privacy">Privacy Center</a>
+            <a href="#/privacy-policy" data-nav="/privacy-policy">Privacy Policy</a>
+            <a href="#/cookies" data-nav="/cookies">Cookies</a>
+            <a href="#/about-ads" data-nav="/about-ads">About Ads</a>
+            <span class="foot-note">Songs play through YouTube. Rights stay with the artists and labels.</span>
+          </footer>
         </div>
       </main>
 
-      <!-- Now playing panel -->
-      <aside class="panel now-playing" id="nowPlaying" aria-label="Now playing">
+      <!-- Sleeve: now playing, full height -->
+      <aside class="now-playing sleeve" id="nowPlaying" aria-label="Now playing">
         <div class="np-top">
-          <span>Now playing</span>
+          <span class="np-masthead">Now playing</span>
           <div class="np-top-actions">
             <button class="icon-btn round small" type="button" id="npQueueBtn" aria-label="Open queue" title="Queue">
               <i data-icon="queue" data-size="sm"></i>
@@ -178,8 +183,8 @@
       </a>
     </nav>
 
-    <!-- ── Player ──────────────────────────────────────────────── -->
-    <footer class="player" aria-label="Player">
+    <!-- ── Deck: the player ────────────────────────────────────── -->
+    <footer class="player deck" aria-label="Player">
       <div class="player-left">
         <img class="bar-art" id="barArt" alt="" />
         <div class="bar-meta">

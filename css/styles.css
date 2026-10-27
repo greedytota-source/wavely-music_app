@@ -2347,3 +2347,525 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
 @media (max-width: 767px) {
   .ad-slot { min-height: 160px; margin: 26px auto 12px; padding: 10px 6px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Aurum — gold leaf layer (shell v2)
+
+   The room is composed the way a record is presented: a masthead, a
+   spine that carries the navigation, a crate of filed sleeves on the
+   left, the editorial page, and a full-height sleeve for whatever is
+   playing — all sitting on a lacquered deck.
+
+   This layer deliberately overrides the shell above instead of editing
+   it in place, so the earlier rules remain readable as a record of the
+   layout the app used to have.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --spine-w: 76px;
+  --crate-w: 248px;
+  --sleeve-w: 326px;
+  --deck-h: 92px;
+  --masthead-h: 60px;
+  --foil: linear-gradient(135deg, #f7e6b6 0%, #d9b26a 46%, #b0893f 100%);
+  --foil-line: rgba(217, 178, 106, 0.28);
+  --lacquer: radial-gradient(120% 90% at 12% -10%, rgba(217, 178, 106, 0.1), transparent 55%), #0b0b0d;
+}
+
+/* ── The room ─────────────────────────────────────────────── */
+.app {
+  position: relative;
+  grid-template-rows: var(--masthead-h) minmax(0, 1fr) var(--deck-h);
+}
+
+/* Film grain over the whole room, so the lacquer reads as material rather
+   than flat colour. Purely decorative: it never takes a pointer event. */
+.app::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 95;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.body {
+  grid-template-columns: var(--spine-w) var(--crate-w) minmax(0, 1fr) 0px;
+}
+.app.np-open .body {
+  grid-template-columns: var(--spine-w) var(--crate-w) minmax(0, 1fr) var(--sleeve-w);
+}
+
+/* Each panel is pinned to its own column. Auto-placement would slide the page
+   into a collapsed 0px track the moment a sibling is display:none — which is
+   how the crate folds away at narrower widths. */
+.spine { grid-column: 1; }
+.crate { grid-column: 2; }
+.main { grid-column: 3; }
+.sleeve { grid-column: 4; }
+
+/* ── Masthead ─────────────────────────────────────────────── */
+.topbar {
+  border-radius: 0;
+  border-bottom: 1px solid var(--foil-line);
+  background: linear-gradient(180deg, rgba(217, 178, 106, 0.06), transparent);
+  padding: 8px 12px;
+}
+.brand-name { font-size: 22px; letter-spacing: 0.01em; }
+.search {
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+.search:hover { background: rgba(255, 255, 255, 0.05); }
+.search:focus-within {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px var(--gold), 0 0 0 4px rgba(217, 178, 106, 0.12);
+}
+.pill-light {
+  background: var(--foil);
+  color: #0a0a0b;
+  font-weight: 800;
+}
+.pill-light:hover { background: var(--foil); filter: brightness(1.08); }
+.avatar { background: var(--foil); color: #0a0a0b; }
+
+/* ── Spine: navigation set like a book spine ──────────────── */
+.spine {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 10px 0 12px;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--foil-line);
+  border-left: 2px solid rgba(217, 178, 106, 0.45);
+  border-radius: 3px 14px 14px 3px;
+  background: linear-gradient(180deg, rgba(217, 178, 106, 0.09), transparent 190px), var(--panel);
+  box-shadow: inset -10px 0 22px rgba(0, 0, 0, 0.5);
+}
+.spine-cap,
+.spine-tail {
+  flex: none;
+  align-self: center;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  color: rgba(217, 178, 106, 0.55);
+}
+.spine-cap { font-size: 10px; letter-spacing: 0.3em; padding-bottom: 4px; }
+.spine-tail { font-size: 9px; letter-spacing: 0.22em; color: rgba(217, 178, 106, 0.32); padding-top: 4px; }
+
+.spine .nav-link {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  height: auto;
+  min-height: 0;
+  padding: 8px 0;
+  border-left: 2px solid transparent;
+  color: var(--muted-2);
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.spine .nav-link .icon { width: 20px; height: 20px; }
+.spine .nav-label {
+  display: block;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.spine .nav-link:hover { color: #fff; background: rgba(255, 255, 255, 0.03); }
+.spine .nav-link:active { transform: none; }
+.spine .nav-link.active {
+  color: var(--gold-bright);
+  border-left-color: var(--gold);
+  background: linear-gradient(90deg, rgba(217, 178, 106, 0.16), transparent 70%);
+}
+
+/* ── The Crate: the library, filed like sleeves ───────────── */
+.crate {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--glass), transparent 150px), var(--panel);
+}
+.crate-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 16px 8px;
+}
+.crate-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.crate-title::after {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 1px;
+  margin-top: 9px;
+  background-image: var(--foil);
+}
+.crate-head .icon-btn { color: var(--muted-2); }
+.crate-head .icon-btn:hover { color: var(--gold-bright); }
+
+/* Filter chips as index tabs rather than pills. */
+.crate .chips { padding: 10px 16px; gap: 14px; }
+.crate .chip {
+  height: auto;
+  padding: 0 0 7px;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--muted-2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.crate .chip:hover { background: none; color: #fff; }
+.crate .chip.active {
+  background: none;
+  color: var(--gold-bright);
+  border-bottom-color: var(--gold);
+}
+.crate .lib-item { border-radius: 8px; padding: 7px 8px; }
+.crate .lib-item img { border-radius: 3px; box-shadow: 0 0 0 1px var(--foil-line); }
+.crate .lib-item-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+
+/* ── Sleeve: now playing, full height ─────────────────────── */
+.sleeve { border-radius: 14px; }
+.sleeve .np-top { padding: 16px 12px 8px 18px; }
+.np-masthead {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--foil-line);
+}
+.sleeve .np-cover { box-shadow: 0 0 0 1px var(--foil-line), 0 22px 44px rgba(0, 0, 0, 0.6); }
+.sleeve .np-card { background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.045); }
+
+/* ── Deck: the player ─────────────────────────────────────── */
+.deck {
+  border-top: 1px solid var(--foil-line);
+  background: linear-gradient(180deg, rgba(217, 178, 106, 0.05), transparent);
+}
+.deck .player-left { padding-left: 6px; }
+.deck .bar-art { border-radius: 3px; box-shadow: 0 0 0 1px var(--foil-line); }
+.deck .bar-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.deck .controls { gap: 16px; }
+.deck .play-btn {
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 0 0 1px rgba(217, 178, 106, 0.5), 0 10px 24px rgba(217, 178, 106, 0.16);
+}
+.deck .play-btn .icon { width: 20px; height: 20px; }
+.deck .progress-row { gap: 14px; }
+/* The rail is ticked like a measuring rule, and fills with foil. */
+.deck .progress-row .bar {
+  height: 6px;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.08);
+  background-image: repeating-linear-gradient(90deg, rgba(217, 178, 106, 0.22) 0 1px, transparent 1px 12px);
+}
+.deck .progress-row .bar-fill,
+.deck .progress-row .bar:hover .bar-fill {
+  background: transparent;
+  background-image: var(--foil);
+  border-radius: 3px;
+}
+.deck .time { font-family: var(--font-display); font-size: 12px; min-width: 44px; }
+
+/* ── Sleeves as objects: foil hairline, gold sweep on hover ─ */
+.card {
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+}
+.card:hover {
+  background: rgba(217, 178, 106, 0.05);
+  border-color: var(--foil-line);
+}
+.card-img {
+  margin-bottom: 12px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--foil-line), 0 16px 32px rgba(0, 0, 0, 0.55);
+}
+.card::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  height: 1px;
+  background-image: var(--foil);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.card:hover::before,
+.card:focus-within::before { transform: scaleX(1); }
+.card-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.play-fab { background: transparent; background-image: var(--foil); color: #0a0a0b; }
+.quick-tile {
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--foil-line);
+}
+.quick-tile:hover { background: rgba(217, 178, 106, 0.07); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Editorial home — a front page instead of a wall of shelves
+   ═══════════════════════════════════════════════════════════════ */
+
+.editorial { padding: 10px 24px 48px; }
+
+.hero-sleeve {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  min-height: 300px;
+  margin: 10px 0 46px;
+  padding: 34px;
+  overflow: hidden;
+  border: 1px solid var(--foil-line);
+  border-radius: 16px;
+  background: var(--lacquer);
+}
+/* Rendered as an <img> rather than a background-image: the covers are data-URI
+   SVGs and a CSS url() would have to survive escaping that an src attribute
+   does not. */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.22;
+  filter: blur(30px) saturate(0.7);
+  transform: scale(1.2);
+}
+.hero-sleeve::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(6, 6, 7, 0.94) 20%, rgba(6, 6, 7, 0.6) 60%, rgba(6, 6, 7, 0.25));
+}
+.hero-content { position: relative; z-index: 1; max-width: 620px; }
+.eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4.4vw, 60px);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin: 14px 0 12px;
+}
+.hero-sub { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 46ch; }
+.hero-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+.hero-art {
+  position: relative;
+  z-index: 1;
+  width: 208px;
+  height: 208px;
+  border-radius: 3px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--foil-line), 0 30px 60px rgba(0, 0, 0, 0.7);
+}
+
+.section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
+.section-head h2 { font-family: var(--font-display); font-size: 25px; font-weight: 600; }
+.section-note { color: var(--muted-2); font-size: 12px; letter-spacing: 0.06em; }
+
+.chart { margin-bottom: 46px; }
+.chart-list { list-style: none; margin: 0; padding: 0; }
+.chart-row {
+  display: grid;
+  grid-template-columns: 46px 52px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.chart-row:hover { background: rgba(217, 178, 106, 0.06); }
+.chart-row:focus-visible { outline-offset: -2px; }
+.chart-rank {
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: rgba(217, 178, 106, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.chart-row:hover .chart-rank { color: var(--gold-bright); }
+.chart-row img {
+  width: 52px;
+  height: 52px;
+  border-radius: 3px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--foil-line);
+}
+.chart-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.chart-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chart-artist {
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chart-dur {
+  text-align: right;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mosaic { margin-bottom: 46px; }
+.mosaic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
+/* The lead sleeve gets a double footprint, so the grid is not a uniform wall. */
+.mosaic-grid .card:first-child { grid-column: span 2; grid-row: span 2; }
+
+.filmstrip { margin-bottom: 8px; }
+.strip {
+  display: flex;
+  gap: 16px;
+  padding: 4px 4px 14px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+.strip .card { flex: 0 0 176px; scroll-snap-align: start; }
+.strip::-webkit-scrollbar { height: 8px; }
+
+/* ── Site footer, inside the page so the policy pages stay reachable
+      whatever the shell is doing with the crate ─────────────────── */
+.site-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin: 20px 24px 0;
+  padding: 22px 0 30px;
+  border-top: 1px solid var(--foil-line);
+}
+.site-foot a { color: var(--muted-2); font-size: 11.5px; letter-spacing: 0.04em; }
+.site-foot a:hover { color: var(--gold-bright); text-decoration: underline; }
+.site-foot .foot-note {
+  margin-left: auto;
+  color: var(--muted-2);
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* ── Shell at narrower widths ─────────────────────────────── */
+@media (max-width: 1400px) {
+  :root { --crate-w: 220px; }
+}
+
+/* The crate folds away first: the library page still holds the full list and
+   the spine keeps the link to it. The sleeve column is only ever reserved while
+   the sleeve is actually open — leaving it at 0px otherwise, or the page would
+   pay 326px for a panel nobody opened. */
+@media (max-width: 1240px) {
+  .body { grid-template-columns: var(--spine-w) 0px minmax(0, 1fr) 0px; }
+  .app.np-open .body {
+    grid-template-columns: var(--spine-w) 0px minmax(0, 1fr) var(--sleeve-w);
+  }
+  .crate { display: none; }
+}
+
+@media (max-width: 1180px) {
+  .body,
+  .app.np-open .body { grid-template-columns: var(--spine-w) 0px minmax(0, 1fr) 0px; }
+  .app.np-open .sleeve { display: none; }
+}
+
+@media (max-width: 900px) {
+  .spine .nav-label { display: block; }
+  .hero-sleeve { grid-template-columns: minmax(0, 1fr); padding: 26px; min-height: 0; }
+  .hero-art { width: 148px; height: 148px; }
+  .mosaic-grid .card:first-child { grid-column: auto; grid-row: auto; }
+  .site-foot { margin: 20px 16px 0; }
+  .site-foot .foot-note { margin-left: 0; }
+}
+
+@media (max-width: 760px) {
+  .spine,
+  .app.np-open .spine { display: none; }
+  .body,
+  .app.np-open .body {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+    gap: 0;
+  }
+  /* One column: the pinned placement above would otherwise create implicit
+     tracks to the right of it. */
+  .spine,
+  .crate,
+  .main,
+  .sleeve { grid-column: auto; }
+  .sleeve,
+  .app.np-open .sleeve { display: none; }
+  .main { border-radius: 0; }
+
+  .editorial { padding: 4px 16px 40px; }
+  .hero-sleeve { margin: 6px 0 32px; padding: 20px; gap: 20px; }
+  .hero-title { font-size: clamp(28px, 8vw, 40px); }
+  .hero-art { width: 124px; height: 124px; }
+  .section-head h2 { font-size: 21px; }
+  .chart-row { grid-template-columns: 34px 44px minmax(0, 1fr); gap: 12px; }
+  .chart-row img { width: 44px; height: 44px; }
+  .chart-rank { font-size: 19px; }
+  .chart-title { font-size: 15px; }
+  .chart-dur { display: none; }
+  .mosaic-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .strip .card { flex: 0 0 148px; }
+
+  .deck .bar-title { font-size: 14px; }
+  .deck .play-btn { width: 38px; height: 38px; }
+  .deck .controls { gap: 8px; }
+  .deck .progress-row { gap: 8px; }
+  .deck .time { min-width: 36px; }
+  .site-foot { margin: 16px 16px 0; }
+}
+
+@media (max-width: 420px) {
+  .hero-sleeve { grid-template-columns: minmax(0, 1fr); }
+  .hero-art { display: none; }
+}

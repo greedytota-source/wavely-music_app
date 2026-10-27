@@ -902,49 +902,99 @@
     return shelves;
   }
 
+  /* The front page is set like a record sleeve instead of a wall of shelves:
+     one sleeve on the platter, a numbered chart of the newest tracks, an
+     asymmetric mosaic of albums and playlists, and a filmstrip of the people
+     in the room. */
   function viewHome() {
     const hour = new Date().getHours();
     const greeting =
       hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-    const quick = homeQuickPickIds().map(getItem).filter(Boolean).map(quickTile).join("");
+    const tracks = window.TRACKS || [];
+    const quick = homeQuickPickIds().map(getItem).filter(Boolean);
+    const featured = quick[0] || null;
 
-    const recentTracks = ((window.TRACKS||[])).slice(0, 6).map(t => ({
-      id: 'track:'+t.id,
-      type: 'Track',
-      title: t.title,
-      artist: t.artist,
-      seed: t.title,
-      tracks: [t]
-    }));
-
-    let recentSection = '';
-    if (recentTracks.length) {
-      recentSection = `<section class="shelf">
-        <div class="shelf-head">
-          <h2 class="shelf-title">Recently added</h2>
+    let hero = "";
+    if (featured) {
+      const count = featured.tracks ? featured.tracks.length : 0;
+      const sub =
+        featured.description ||
+        `${count ? plural(count, "song") + " · " : ""}${featured.artist || "Your library"}`;
+      hero = `<section class="hero-sleeve">
+      <img class="hero-bg" src="${itemArt(featured)}" alt="" aria-hidden="true" />
+      <div class="hero-content">
+        <p class="eyebrow">${esc(greeting)} · on the platter</p>
+        <h1 class="hero-title">${esc(featured.title)}</h1>
+        <p class="hero-sub">${esc(sub)}</p>
+        <div class="hero-actions">
+          <button class="big-play" type="button" data-action="play-context" data-id="${featured.id}" data-label="${esc(featured.title)}" aria-label="Play ${esc(featured.title)}">${icon("play")}</button>
+          <button class="pill pill-text" type="button" data-nav="/playlist/${encodeURIComponent(featured.id)}">Open the sleeve</button>
         </div>
-        <div class="card-grid">${recentTracks.map((i) => card(i)).join("")}</div>
-      </section>`;
+      </div>
+      <img class="hero-art" src="${itemArt(featured)}" alt="" />
+    </section>`;
     }
 
-    const shelves = homeShelves().map((shelf) => {
-      const items = shelf.ids.map(getItem).filter(Boolean);
-      if (!items.length) return "";
-      return `<section class="shelf">
-        <div class="shelf-head">
-          <h2 class="shelf-title" data-nav="/library">${esc(shelf.title)}</h2>
-          <button class="show-all" type="button" data-nav="/library">Show all</button>
-        </div>
-        <div class="card-grid">${items.map((i) => card(i)).join("")}</div>
-      </section>`;
-    }).join("");
+    const chartTracks = tracks.slice(0, 10);
+    const chart = chartTracks.length
+      ? `<section class="chart">
+      <div class="section-head">
+        <h2>The Gold Ten</h2>
+        <span class="section-note">Newest in the room · pick a row to play</span>
+      </div>
+      <ol class="chart-list">
+        ${chartTracks
+          .map(
+            (t, i) => `<li class="chart-row" role="button" tabindex="0" data-action="play-track-card" data-track-id="${t.id}" aria-label="Play ${esc(t.title)}">
+          <span class="chart-rank">${String(i + 1).padStart(2, "0")}</span>
+          <img src="${trackArt(t)}" alt="" loading="lazy" />
+          <span class="chart-main">
+            <span class="chart-title">${esc(t.title)}</span>
+            <span class="chart-artist">${esc(t.artist || "")}${t.album ? ` · ${esc(t.album)}` : ""}</span>
+          </span>
+          <span class="chart-dur">${fmtTime(t.duration)}</span>
+        </li>`
+          )
+          .join("")}
+      </ol>
+    </section>`
+      : "";
 
-    return `<div class="home">
-      <h1 class="greeting">${greeting}</h1>
-      <div class="quick-grid">${quick}</div>
-      ${recentSection}
-      ${shelves}
+    const mosaicSeen = new Set();
+    const mosaicCards = homeShelves()
+      .flatMap((shelf) => shelf.ids)
+      .map(getItem)
+      .filter((item) => item && !mosaicSeen.has(item.id) && mosaicSeen.add(item.id))
+      .slice(0, 12)
+      .map((item) => card(item))
+      .join("");
+    const mosaic = mosaicCards
+      ? `<section class="mosaic">
+      <div class="section-head">
+        <h2>Sleeves</h2>
+        <button class="show-all" type="button" data-nav="/library">Everything in the crate</button>
+      </div>
+      <div class="mosaic-grid">${mosaicCards}</div>
+    </section>`
+      : "";
+
+    const artistCards = (window.ARTISTS || []).slice(0, 12).map((artist) => card(artist)).join("");
+    const strip = artistCards
+      ? `<section class="filmstrip">
+      <div class="section-head">
+        <h2>The people in the room</h2>
+        <button class="show-all" type="button" data-nav="/library">All artists</button>
+      </div>
+      <div class="strip">${artistCards}</div>
+    </section>`
+      : "";
+
+    return `<div class="home editorial">
+      ${hero}
+      ${chart}
+      ${mosaic}
+      ${strip}
     </div>`;
   }
 

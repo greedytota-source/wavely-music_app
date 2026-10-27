@@ -1,14 +1,21 @@
 # Aurum — noir + gold web music player
 
-A pixel-close recreation of Spotify's **web player** layout and interaction model, built
-from scratch with plain HTML, CSS and JavaScript. No framework and no build step; the
+A music room for the songs you keep: a noir-and-gold player laid out like a record sleeve,
+built from scratch with plain HTML, CSS and JavaScript. No framework and no build step; the
 catalogue and accounts come from Supabase, YouTube metadata lookups go through the local
 proxy in `main.py`, and the Google Font is optional.
 
-> **Not affiliated with Spotify.** All branding here is placeholder and the demo cover art
-> is generated at runtime as SVG. No Spotify assets, album artwork, lyrics or audio are
-> included. YouTube songs you add are streamed from YouTube and remain the property of
-> their rights holders — see [Legal contact](#legal-contact).
+The shell speaks its own language rather than a borrowed one: a **masthead** across the
+top, a **spine** down the left carrying the navigation as rotated type, **The Crate**
+beside it filing the library like sleeves, a full-height **sleeve** for whatever is
+playing, and a ticked gold **deck** at the foot for the transport. Home reads like a front
+page rather than a wall of shelves.
+
+> **Independently built.** All branding here is original and the cover art is generated at
+> runtime as SVG. No third-party player assets, album artwork, lyrics or audio are
+> included. Songs added from a YouTube link are streamed by YouTube inside its own
+> embedded player and remain the property of their rights holders — see
+> [Legal contact](#legal-contact).
 
 ---
 
@@ -89,19 +96,24 @@ needs your `pub-…` digits before the AdSense site review will pass.
 ## What's implemented
 
 **Shell**
-- Black top bar with wordmark, history arrows, expanding search, Premium/Install pills,
-  notifications and an account menu
-- Two-panel left sidebar: navigation panel + "Your Library" panel with filter chips,
-  playlist/album/artist rows, legal links and language pill
-- Rounded `#121212` main panel with independently scrolling content
-- Collapsible right "Now playing" panel (open by default above 1240 px)
+- Masthead: wordmark, history arrows, an expanding search with a gold focus ring,
+  Admin/Log in/Install pills, notifications and an account menu, over a gold hairline
+- **Spine**: the navigation as a narrow rail of rotated serif labels, the active tab marked
+  in gold down its left edge
+- **The Crate**: the library as filed sleeves — filter chips set as index tabs, rows with
+  gold-edged covers, and the policy links along its foot
+- Rounded main panel with independently scrolling content, and a site footer under every page
+- **Sleeve**: collapsible now-playing panel at full height (open by default above 1240 px)
 - Slide-in queue drawer
-- Sticky bottom player: artwork, title/artist, save button, shuffle, previous, play/pause,
-  next, repeat, seek bar, lyrics, queue, devices, volume, now-playing toggle, fullscreen
-- Mobile layout: icon rail collapses, sidebar hides, bottom tab bar, compact player
+- **Deck**: artwork, serif marquee, save button, shuffle, previous, play/pause, next, repeat,
+  a ticked gold seek rail, lyrics, queue, devices, volume, now-playing toggle, fullscreen
+- Mobile layout: spine and crate fold away, bottom tab bar and a compact deck
 
 **Pages**
-- **Home** — time-based greeting, six quick-pick tiles, recently added tracks and shelves with hover play buttons
+- **Home** — a front page: a featured sleeve with a blurred cover backdrop, a "Gold Ten"
+  numbered chart, an asymmetric mosaic of albums and playlists, and a filmstrip of artists
+- **All Songs** — the whole catalogue in one table
+- **Your profile** — account summary, playlists and liked songs
 - **Search** — searches only the songs in your catalogue (uploads and saved YouTube songs), split into
   Top result / Songs / Artists / Playlists; the empty state browses your library instead of the web
 - **Your Library** — table view with Playlists / Albums / Artists filters and row metadata
@@ -109,6 +121,12 @@ needs your `pub-…` digits before the AdSense site review will pass.
   duration metadata, play/save/more actions, full track table with hover states
 - **Artist** — circular hero, monthly listeners, follow button, popular tracks, discography
 - **Copyright & legal** — how YouTube embedding works, ownership, removal requests and credits
+- **Privacy Center** — the short version of what is stored, what leaves the browser, and what
+  can be switched off, linking out to the pages below
+- **Privacy Policy** — what is collected, who processes it, retention, your rights, security
+- **Cookies** — the exact browser storage keys the app writes, and what third parties may set
+- **About Ads** — that ads ship switched off, where a slot is allowed to appear, and how to
+  turn them off for yourself
 - **Not found** — graceful fallback
 
 **Playback**
@@ -148,11 +166,12 @@ needs your `pub-…` digits before the AdSense site review will pass.
 ## Structure
 
 ```
-wavely-web-player/
+Aurum/
 ├── main.py                # local server + YouTube metadata proxy (/api/video)
 ├── api_key.txt            # your YouTube Data API v3 key (git-ignored, never served)
 ├── requirements.txt       # no third-party deps; stdlib only
-├── index.html             # static shell: top bar, sidebar, panels, player, modals
+├── index.html             # the shell: masthead, spine, crate, page, sleeve, deck, modals
+├── _harness.html          # shell probe: loads the player at several widths, reports geometry
 ├── admin.html             # sidebar admin: upload / YouTube / artists / songs (signed in)
 ├── ads.txt                # AdSense seller record (paste your pub- id before review)
 ├── css/
@@ -177,8 +196,11 @@ wavely-web-player/
 
 ## How it's put together
 
-- **Layout:** CSS Grid shell (`64px / 1fr / 88px`) with a three-column workspace. Sidebar and
-  now-playing width are variables; `np-open` toggles the third column.
+- **Layout:** CSS Grid shell (`60px / 1fr / 92px`) with a four-column workspace — spine,
+  crate, page, sleeve — sized by `--spine-w`, `--crate-w` and `--sleeve-w`. Each panel is
+  pinned to its own column, so a panel that folds away (the crate is `display: none` below
+  1240 px) cannot drag the page into a collapsed track by shifting auto-placement.
+  `np-open` opens the sleeve.
 - **Routing:** hash-based (`#/`, `#/search`, `#/library`, `#/playlist/:id`, `#/artist/:name`)
   with re-render on `hashchange`.
 - **Artwork:** `coverArt(seed)` derives a stable hue from an FNV-1a hash and renders a gradient
@@ -191,7 +213,9 @@ wavely-web-player/
 
 The wordmark, mark and gold accent are placeholders. To rebrand, edit:
 - `index.html` → `.brand` (mark SVG + name) and `<title>`
-- `css/styles.css` → `--gold` / `--gold-bright` (the noir + gold layer sits at the end of the file)
+- `css/styles.css` → `--gold`, `--gold-bright`, `--foil` (the gradient used on edges and
+  controls) and `--spine-w` / `--crate-w` / `--sleeve-w` for the shell. The gold-leaf layer
+  sits at the end of the file and overrides the earlier blocks rather than replacing them
 - `js/app.js` → toast copy and credits text
 
 ### Legal contact
@@ -202,8 +226,9 @@ shows a short "streamed from YouTube, rights belong to the owners" notice in the
 playing → Song details card. YouTube playback uses `youtube-nocookie.com` and the site
 never downloads or re-hosts the audio.
 
-Spotify, its logo and its product names are trademarks of Spotify AB. This project is a
-learning/demo recreation and is not distributed as a Spotify product.
+All third-party names, logos and trademarks belong to their respective owners. Aurum is an
+independent project: it is not affiliated with, endorsed by or sponsored by YouTube, Google
+or any record label, and it is not distributed as anyone else's product.
 
 ## Extending
 
