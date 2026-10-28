@@ -55,6 +55,13 @@ Without it, adding a song from `admin.html` fails with
 `new row violates row-level security policy for table "artists"` (the reader can still play
 the catalogue, because reads stay public).
 
+Run `supabase/radio-stations.sql` once to create the public-read, admin-managed live radio
+table. It seeds FM GOLD (Delhi, 106.4 FM) with the supplied HLS stream URL. After the SQL
+finishes, the station appears on Home; Admin → Radio can edit its details, hide it, or add
+other HTTPS streams. The supplied host currently omits CORS headers, so HLS.js playback in
+Chrome/Firefox requires the stream provider to enable CORS; Safari can use native HLS. Only
+add stations you have permission to stream.
+
 Two optional migrations keep older libraries tidy:
 
 - `supabase/merge-albums.sql` folds albums that share the same title into one row and

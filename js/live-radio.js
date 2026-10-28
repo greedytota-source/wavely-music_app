@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════
    Aurum — live FM stations
 
-   This file is deliberately empty. A live station is someone else's
-   broadcast, so it only belongs here when you are allowed to stream it.
+  This file is a fallback for static station definitions. The normal
+  station list is loaded from the radio_stations Supabase table and managed
+  in Admin → Radio.
 
    Two ways to add a station, and both are one object in the array below:
 
@@ -41,17 +42,16 @@
      they rotate without notice, so a station added that way usually goes
      quiet within weeks.
 
-   Nothing below is added for you: an unlicensed station shipped in a repo is
-   a problem the moment the site is public.
+  Only add stations you are allowed to stream.
    ═══════════════════════════════════════════════════════════════ */
 
 window.AURUM_LIVE_STATIONS = [
-  // {
-  //   id: "station-live",
-  //   name: "Station Live",
-  //   frequency: "93.5",
-  //   city: "Delhi",
-  //   c1: "#8f3d52",
-  //   youtube: "dQw4w9WgXcQ"
-  // }
+  {
+    id: "fm-gold",
+    name: "FM GOLD",
+    frequency: "106.4",
+    city: "Delhi",
+    c1: "#8f3d52",
+    stream: "https://d3r9rhourdc02u.cloudfront.net/assets/radio/airdelhi01/air001_Auto.m3u8"
+  }
 ];

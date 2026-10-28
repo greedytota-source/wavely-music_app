@@ -318,6 +318,8 @@
   const audio = new Audio();
   audio.preload = "auto";
   audio.volume = p.volume;
+  let hlsPlayer = null;
+  let activeAudioSource = "";
 
   const synth = window.WavelySynth || null;
   const synthSeed = (track) => (track ? `${track.id}:${track.title}` : "");
@@ -337,11 +339,33 @@
     const t = currentTrack();
     if (t?.src) {
       const abs = new URL(t.src, location.href).href;
-      if (audio.src !== abs) audio.src = t.src;
-      audio.currentTime = 0;
+      if (activeAudioSource !== abs) {
+        hlsPlayer?.destroy();
+        hlsPlayer = null;
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+        activeAudioSource = abs;
+
+        const isHls = /\.m3u8(?:$|[?#])/i.test(abs);
+        const nativeHls = audio.canPlayType("application/vnd.apple.mpegurl");
+        if (isHls && !nativeHls && window.Hls?.isSupported()) {
+          hlsPlayer = new window.Hls();
+          hlsPlayer.on(window.Hls.Events.MANIFEST_PARSED, () => {
+            if (p.playing && activeAudioSource === abs) audio.play().catch(() => {});
+          });
+          hlsPlayer.loadSource(t.src);
+          hlsPlayer.attachMedia(audio);
+        } else {
+          audio.src = t.src;
+        }
+      }
       audio.volume = p.muted ? 0 : p.volume;
-      if (autoplay) audio.play().catch(() => {});
+      if (autoplay && !hlsPlayer) audio.play().catch(() => {});
     } else {
+      hlsPlayer?.destroy();
+      hlsPlayer = null;
+      activeAudioSource = "";
       audio.pause();
       if (audio.getAttribute("src")) {
         audio.removeAttribute("src");
@@ -518,6 +542,8 @@
 
   function play() {
     if (!p.queue.length) return;
+    // A playing Radio Mirchi would talk over the deck — cut it first.
+    stopRadioForDeck();
     // Ensure AudioContext is resumed (requires user gesture; click triggers this).
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -988,12 +1014,10 @@
   }
 
   /* ── Live stations ─────────────────────────────────────────── */
-  /* A live station is someone else's broadcast, so the list ships empty and
-     lives in js/live-radio.js: only stations you are allowed to stream belong
-     there. Each entry is either a direct stream URL or a station's own 24/7
-     live video on YouTube. */
+    /* Stations come from Supabase; the static array remains a fallback for
+      deployments that have not installed the radio table migration yet. */
   function liveStations() {
-    return (window.AURUM_LIVE_STATIONS || []).filter((s) => s && s.name && (s.stream || s.youtube));
+    return (window.AURUM_LIVE_STATIONS || []).filter((s) => s && s.enabled !== false && s.name && (s.stream || s.youtube));
   }
 
   function liveStationTrack(station) {
@@ -1026,15 +1050,138 @@
   }
 
   function liveTile(station) {
+    if (isMyTunerMirchi(station)) return myTunerMirchiTile(station);
     return `<button class="channel live-station" type="button" style="--c1:${station.c1 || "#6a5a3c"}" data-action="play-live" data-live="${esc(station.id || station.name)}" aria-label="Play ${esc(station.name)} live">
       <span class="channel-top">
         <span class="channel-live" aria-hidden="true"><i></i>On air</span>
         <span class="channel-count">${esc(station.frequency ? `${station.frequency} FM` : "")}</span>
       </span>
+      <span class="channel-control">
+        <span class="channel-play" aria-hidden="true">${icon("play", "sm")}</span>
+      </span>
       <span class="channel-name">${esc(station.name)}</span>
       <span class="channel-sub">${esc(station.city || station.blurb || "Live radio")}</span>
-      <span class="channel-play" aria-hidden="true">${icon("play", "sm")}</span>
     </button>`;
+  }
+
+  let myTunerScriptsPromise = null;
+
+  function isMyTunerMirchi(station) {
+    const frequency = String(station.frequency || "").replace(/[^\d.]/g, "");
+    return /radio\s*mirchi/i.test(station.name || "") && frequency === "98.3" &&
+      /radioindia\.in|mytuner-radio\.com/i.test(station.stream || "");
+  }
+
+  function myTunerMirchiTile(station) {
+    const id = "Y0goU8Oqw5DDjMO9fsK3w5RQw71UQcOqNMOALMKlwrE=";
+    return `<article class="channel live-station mytuner-station" style="--c1:${station.c1 || "#a84b35"}">
+      <span class="channel-top">
+        <span class="channel-live"><i></i>Live</span>
+        <span class="channel-count">${esc(station.frequency)} FM</span>
+      </span>
+      <div id="${id}" class="mytuner-widget" data-target="395596" data-requires_initialization="true" data-autoplay="false" data-hidehistory="true">
+        <div id="${id}top-bar" class="mytuner-widget-bar">
+            <div id="${id}play-button" class="main-play-button channel-play disabled" role="button" tabindex="0" aria-label="Play Radio Mirchi 98.3 FM" data-id="${id}"><div class="play-image"></div></div>
+          <a class="player-radio-link" href="https://mytuner-radio.com/radio/radio-mirchi-983-fm-395596/" target="_blank" rel="noopener noreferrer">
+            <img src="https://static2.mytuner.mobi/media/tvos_radios/596/radio-mirchi-983-fm.08cff4be.png" alt="Radio Mirchi 98.3 FM">
+          </a>
+          <div class="volume-controls">
+            <input id="${id}volume-control" class="volume-control slider" type="range" min="1" max="100" value="100" aria-label="Radio volume">
+            <svg id="${id}volume-indicator" class="volume-indicator" viewBox="0 0 24 24" aria-label="Mute radio"><path d="M3 10v4c0 .55.45 1 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71V6.41c0-.89-1.08-1.34-1.71-.71L7 9H4c-.55 0-1 .45-1 1zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          </div>
+        </div>
+        <ul id="${id}song-history" data-border="1" data-bordercolor="#333" hidden></ul>
+      </div>
+      <div class="mytuner-station-footer">
+        <img src="https://static2.mytuner.mobi/media/tvos_radios/596/radio-mirchi-983-fm.08cff4be.png" alt="">
+        <div>
+          <span class="channel-name">${esc(station.name)}</span>
+          <span class="channel-sub">${esc(station.city || "Mumbai")}</span>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  /* Radio Mirchi talks through the mytuner widget's own audio, outside the
+     main player, so only one of them may ever be audible. The widget exposes
+     nothing but its play/pause button, so that button is the whole protocol:
+
+       * the station comes on air (click, keyboard, widget-driven) -> the deck
+         pauses,
+       * the deck starts -> the station's pause button gets pressed.
+
+     `syntheticStop` marks our own press so it cannot come back around and
+     pause the playback we just started, and the observer only reacts to the
+     `playing` class *appearing* — the widget rewrites its class for cosmetic
+     reasons, which must not be mistaken for the station starting. */
+  let syntheticStop = false;
+
+  function radioPressed() {
+    if (syntheticStop) return; // our own stop-press, not the user
+    if (p.playing) pause();
+  }
+
+  function stopRadioForDeck() {
+    const button = document.querySelector(".mytuner-widget .main-play-button.playing");
+    if (!button) return;
+    syntheticStop = true;
+    try {
+      button.click();
+    } finally {
+      syntheticStop = false;
+    }
+  }
+
+  function watchMyTunerPlayButton(id) {
+    const button = document.getElementById(`${id}play-button`);
+    if (!button || button.dataset.deckWatch === "on") return;
+    button.dataset.deckWatch = "on";
+    let stationOn = button.classList.contains("playing");
+    button.addEventListener("click", radioPressed);
+    new MutationObserver(() => {
+      const now = button.classList.contains("playing");
+      if (now === stationOn) return; // same state, new coat of paint
+      stationOn = now;
+      if (now && p.playing) pause();
+    }).observe(button, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  function initializeMyTunerWidget(id) {
+    const widget = document.getElementById(id);
+    if (!widget || widget.dataset.requires_initialization !== "true") return;
+    watchMyTunerPlayButton(id);
+    window.mytuner_scripts = window.mytuner_scripts || {};
+    window.mytuner_scripts["player-v1.js_queue"] = window.mytuner_scripts["player-v1.js_queue"] || [];
+    if (!myTunerScriptsPromise) {
+      const loadScript = (src) => new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = false;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      myTunerScriptsPromise = loadScript("https://mytuner-radio.com/static/js/widgets/player-v1.js")
+        .then(() => loadScript("https://mytuner-radio.com/static/js/widgets/widget-player-v1.js"))
+        .catch((error) => {
+          myTunerScriptsPromise = null;
+          throw error;
+        });
+    }
+    myTunerScriptsPromise.then(() => {
+      if (!widget.isConnected || widget.dataset.requires_initialization !== "true") return;
+      const initialize = window.mytuner_scripts?.["player-v1.js"];
+      if (typeof initialize !== "function") throw new Error("myTuner widget did not initialize");
+      initialize(id);
+      widget.dataset.requires_initialization = "false";
+    }).catch((error) => {
+      console.warn("myTuner widget failed to load:", error);
+      const button = document.getElementById(`${id}play-button`);
+      if (button) {
+        button.classList.add("error");
+        button.setAttribute("aria-label", "Radio Mirchi player unavailable");
+      }
+    });
   }
 
   function crateCard(name) {
@@ -2269,6 +2416,11 @@
       btn.classList.toggle("is-playing", on);
       setBtn(btn, on);
     });
+    $$(".channel[data-action='play-live']").forEach((btn) => {
+      const on = Boolean(p.playing && ctx === `live:${btn.dataset.live}`);
+      btn.classList.toggle("is-playing", on);
+      btn.setAttribute("aria-label", `${on ? "Pause" : "Play"} ${btn.dataset.live} live`);
+    });
     $$(".big-play[data-id]").forEach((btn) => {
       setBtn(btn, Boolean(p.playing && btn.dataset.id === ctx));
     });
@@ -2392,6 +2544,9 @@
     updateActiveRows();
     updatePlayingButtons();
     updateLikeUI();
+    view.querySelectorAll('.mytuner-widget[data-requires_initialization="true"]').forEach((widget) => {
+      initializeMyTunerWidget(widget.id);
+    });
   }
 
   function renderViewOnly() {

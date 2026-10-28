@@ -342,7 +342,7 @@
     a.btn-small { display: inline-flex; align-items: center; text-decoration: none; }
 
     /* ── Status messages ───────────────────────────────────── */
-    #status, #ytStatus, #artistStatus, #trackStatus, #loginStatus {
+    #status, #ytStatus, #artistStatus, #trackStatus, #radioStatus, #loginStatus {
       display: none;
       margin-top: 18px;
       padding: 12px 16px;
@@ -466,6 +466,22 @@
     .artist-row-meta strong { color: #fff; font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
     .artist-row-meta span { color: var(--dim); font-size: 12.5px; }
     .artist-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .radio-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 12px;
+      border-bottom: 1px solid #151515;
+    }
+    .radio-row:last-child { border-bottom: 0; }
+    .radio-row-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .radio-row-meta strong { color: #fff; font-size: 14.5px; }
+    .radio-row-meta span { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+    .radio-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .radio-enabled { color: var(--gold) !important; }
+    .radio-enabled-toggle { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; color: var(--text); letter-spacing: 0; text-transform: none; }
+    .radio-enabled-toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--gold); }
 
     /* ── Track table ───────────────────────────────────────── */
     .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 14px; margin-bottom: 18px; }
@@ -594,6 +610,8 @@
       .artists-picker { grid-template-columns: 1fr; }
       .artist-row { flex-wrap: wrap; }
       .artist-row-actions { width: 100%; }
+      .radio-row { align-items: flex-start; flex-direction: column; }
+      .radio-row-actions { width: 100%; }
     }
   </style>
 </head>
@@ -630,6 +648,10 @@
         <button type="button" class="nav-item" data-page="songs">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16"/><path d="M4 12h16"/><path d="M4 17.5h9"/></svg>
           Songs
+        </button>
+        <button type="button" class="nav-item" data-page="radio">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h16v10H4z"/><path d="m4 9.5 15-6"/><path d="M8 13h.01M12 13h.01M16 13h.01"/><path d="M8 16.5h8"/></svg>
+          Radio
         </button>
       </nav>
 
@@ -899,6 +921,53 @@
               <p class="hint">Loading tracks…</p>
             </div>
             <div id="trackStatus"></div>
+          </div>
+        </section>
+
+        <section class="page" data-page="radio" hidden
+                 data-title="Live radio"
+                 data-subtitle="Manage live stations shown on the Home page.">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2 id="radioFormHeading">Add station</h2>
+                <p>Direct HTTPS audio stream URL daalo. Station ka stream apne rights/permission ke saath use karo.</p>
+              </div>
+            </div>
+            <form id="radioForm">
+              <input type="hidden" id="radioId">
+              <div class="row">
+                <div class="field">
+                  <label for="radioName">Station name *</label>
+                  <input type="text" id="radioName" required maxlength="80" placeholder="FM GOLD">
+                </div>
+                <div class="field">
+                  <label for="radioFrequency">Frequency</label>
+                  <input type="text" id="radioFrequency" maxlength="24" placeholder="106.4">
+                </div>
+              </div>
+              <label for="radioCity">City</label>
+              <input type="text" id="radioCity" maxlength="80" placeholder="Delhi">
+              <label for="radioStream">Stream URL *</label>
+              <input type="url" id="radioStream" required placeholder="https://example.com/live.m3u8">
+              <p class="hint">HLS (.m3u8) aur direct MP3/AAC streams supported hain. Chrome/Firefox me HLS ke liye stream host ka CORS allow karna zaroori hai; Safari native HLS use karta hai.</p>
+              <label class="radio-enabled-toggle"><input type="checkbox" id="radioEnabled" checked> Show station on Home</label>
+              <div class="form-actions">
+                <button type="submit" id="radioSubmitBtn">Add station</button>
+                <button type="button" id="radioCancelBtn" class="btn-small btn-ghost" hidden>Cancel edit</button>
+              </div>
+            </form>
+            <div id="radioStatus" role="status" aria-live="polite"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Stations</h2>
+                <p>Enabled stations are visible to every listener.</p>
+              </div>
+              <span class="count-pill" id="radioCount"></span>
+            </div>
+            <div id="radioList" class="stack"><p class="hint">Loading stations…</p></div>
           </div>
         </section>
       </div>

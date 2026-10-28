@@ -47,6 +47,21 @@ async function loadSupabaseData() {
 
     if (tracksRes.error) throw tracksRes.error;
 
+    const stationsRes = await window.supabaseClient
+      .from('radio_stations')
+      .select('id, name, frequency, city, stream_url, enabled, position')
+      .eq('enabled', true)
+      .order('position')
+      .order('name');
+    if (stationsRes.error) {
+      console.warn('Radio stations unavailable:', stationsRes.error.message);
+    } else {
+      window.AURUM_LIVE_STATIONS = (stationsRes.data || []).map((station) => ({
+        ...station,
+        stream: station.stream_url
+      }));
+    }
+
     window.TRACKS = (tracksRes.data || []).map((t) => {
       const credits = (t.track_artists || [])
         .slice()

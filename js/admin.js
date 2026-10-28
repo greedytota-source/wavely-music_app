@@ -950,6 +950,159 @@ function selectedArtistIds() {
   return Array.from(selectedArtists);
 }
 
+/* ── Live radio manager ────────────────────────────────────────── */
+
+let radioCache = [];
+
+function showRadioStatus(message, type) {
+  const status = document.getElementById('radioStatus');
+  if (!status) return;
+  status.textContent = message || '';
+  status.className = type || '';
+}
+
+function renderRadioStations() {
+  const list = document.getElementById('radioList');
+  const count = document.getElementById('radioCount');
+  if (!list) return;
+  if (count) count.textContent = `${radioCache.length} station${radioCache.length === 1 ? '' : 's'}`;
+
+  if (!radioCache.length) {
+    list.innerHTML = '<p class="empty">No stations yet. Add FM GOLD or another permitted station above.</p>';
+    return;
+  }
+
+  list.innerHTML = radioCache.map((station) => `
+    <div class="radio-row">
+      <div class="radio-row-meta">
+        <strong>${escapeHtml(station.name)}${station.frequency ? ` · ${escapeHtml(station.frequency)} FM` : ''}</strong>
+        <span>${escapeHtml(station.city || 'Live radio')} · ${escapeHtml(station.stream_url)}</span>
+        <span class="${station.enabled ? 'radio-enabled' : ''}">${station.enabled ? 'On air' : 'Hidden'}</span>
+      </div>
+      <div class="radio-row-actions">
+        <button type="button" class="btn-small btn-ghost" data-action="edit-radio" data-id="${escapeHtml(station.id)}">Edit</button>
+        <button type="button" class="btn-small btn-ghost" data-action="toggle-radio" data-id="${escapeHtml(station.id)}">${station.enabled ? 'Hide' : 'Enable'}</button>
+        <button type="button" class="btn-small danger" data-action="delete-radio" data-id="${escapeHtml(station.id)}">Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+async function loadRadioStations() {
+  const list = document.getElementById('radioList');
+  if (!list || !window.supabaseClient) return;
+  const { data, error } = await window.supabaseClient
+    .from('radio_stations')
+    .select('*')
+    .order('position')
+    .order('name');
+  if (error) {
+    radioCache = [];
+    list.innerHTML = '<p class="empty">Radio table unavailable. Run supabase/radio-stations.sql in the Supabase SQL Editor, then reload.</p>';
+    return;
+  }
+  radioCache = data || [];
+  renderRadioStations();
+}
+
+function resetRadioForm() {
+  document.getElementById('radioForm')?.reset();
+  document.getElementById('radioId').value = '';
+  document.getElementById('radioEnabled').checked = true;
+  document.getElementById('radioFormHeading').textContent = 'Add station';
+  document.getElementById('radioSubmitBtn').textContent = 'Add station';
+  document.getElementById('radioCancelBtn').hidden = true;
+}
+
+function initRadioManager() {
+  const form = document.getElementById('radioForm');
+  const list = document.getElementById('radioList');
+  if (!form || !list) return;
+
+  loadRadioStations();
+  document.getElementById('radioCancelBtn').addEventListener('click', resetRadioForm);
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = document.getElementById('radioSubmitBtn');
+    const id = document.getElementById('radioId').value;
+    const streamUrl = document.getElementById('radioStream').value.trim();
+    let parsedUrl;
+    try { parsedUrl = new URL(streamUrl); } catch (_) {
+      showRadioStatus('Valid stream URL daalo.', 'error');
+      return;
+    }
+    if (parsedUrl.protocol !== 'https:') {
+      showRadioStatus('Stream URL HTTPS hona chahiye.', 'error');
+      return;
+    }
+
+    const station = {
+      name: document.getElementById('radioName').value.trim(),
+      frequency: document.getElementById('radioFrequency').value.trim() || null,
+      city: document.getElementById('radioCity').value.trim() || null,
+      stream_url: streamUrl,
+      enabled: document.getElementById('radioEnabled').checked,
+      position: id ? (radioCache.find((row) => String(row.id) === id)?.position || 0) : radioCache.length
+    };
+
+    submit.disabled = true;
+    showRadioStatus(id ? 'Station update ho raha hai…' : 'Station save ho raha hai…', 'success');
+    try {
+      const request = id
+        ? window.supabaseClient.from('radio_stations').update(station).eq('id', id)
+        : window.supabaseClient.from('radio_stations').insert(station);
+      const { error } = await request;
+      if (error) throw error;
+      showRadioStatus(id ? 'Station update ho gaya.' : 'Station add ho gaya.', 'success');
+      resetRadioForm();
+      await loadRadioStations();
+    } catch (error) {
+      console.error('Radio station save error:', error);
+      showRadioStatus(`Save failed: ${error.message || error}`, 'error');
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  list.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-action][data-id]');
+    if (!button) return;
+    const station = radioCache.find((row) => String(row.id) === button.dataset.id);
+    if (!station) return;
+
+    if (button.dataset.action === 'edit-radio') {
+      document.getElementById('radioId').value = station.id;
+      document.getElementById('radioName').value = station.name || '';
+      document.getElementById('radioFrequency').value = station.frequency || '';
+      document.getElementById('radioCity').value = station.city || '';
+      document.getElementById('radioStream').value = station.stream_url || '';
+      document.getElementById('radioEnabled').checked = Boolean(station.enabled);
+      document.getElementById('radioFormHeading').textContent = 'Edit station';
+      document.getElementById('radioSubmitBtn').textContent = 'Save changes';
+      document.getElementById('radioCancelBtn').hidden = false;
+      document.getElementById('radioName').focus();
+      return;
+    }
+
+    const changes = button.dataset.action === 'toggle-radio'
+      ? { enabled: !station.enabled }
+      : null;
+    if (button.dataset.action === 'delete-radio' && !confirm(`Delete ${station.name}?`)) return;
+    if (!changes && button.dataset.action !== 'delete-radio') return;
+
+    const request = changes
+      ? window.supabaseClient.from('radio_stations').update(changes).eq('id', station.id)
+      : window.supabaseClient.from('radio_stations').delete().eq('id', station.id);
+    const { error } = await request;
+    if (error) {
+      showRadioStatus(`Could not update station: ${error.message}`, 'error');
+      return;
+    }
+    showRadioStatus(changes ? 'Station visibility update ho gayi.' : 'Station delete ho gaya.', 'success');
+    await loadRadioStations();
+  });
+}
+
 let adminBound = false;
 
 function initAdmin() {
@@ -968,6 +1121,7 @@ function initAdmin() {
   loadAlbumOptions();
   initArtistManager();
   initTrackManager();
+  initRadioManager();
   initYouTubeForm();
 
   ARTIST_PICKERS.forEach((p) => {
@@ -1202,7 +1356,7 @@ function initAdmin() {
 
 /* ── Page navigation ───────────────────────────────────── */
 
-const ADMIN_PAGES = ['upload', 'youtube', 'artists', 'songs'];
+const ADMIN_PAGES = ['upload', 'youtube', 'artists', 'songs', 'radio'];
 let currentPage = '';
 
 function pageFromHash() {

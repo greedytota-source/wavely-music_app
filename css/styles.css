@@ -2454,7 +2454,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   padding: 10px 0 12px;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--foil-line);
+  border: 1px solid transparent;
   border-left: 2px solid rgba(206, 186, 152, 0.3);
   border-radius: 3px 14px 14px 3px;
   background: linear-gradient(180deg, rgba(206, 186, 152, 0.045), transparent 190px), var(--panel);
@@ -3194,8 +3194,8 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  min-height: 138px;
-  padding: 15px 16px 46px;
+  min-height: 176px;
+  padding: 15px 16px;
   border: 1px solid var(--foil-line);
   border-radius: 4px;
   text-align: left;
@@ -3245,11 +3245,18 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   font-variant-numeric: tabular-nums;
 }
 .channel-name {
-  margin-top: 10px;
+  margin-top: auto;
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
+}
+.channel-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 60px;
 }
 .channel-sub {
   font-size: 12px;
@@ -3258,22 +3265,16 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   max-width: 30ch;
 }
 .channel-play {
-  position: absolute;
-  right: 14px;
-  bottom: 13px;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-ink);
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: transform 0.18s ease, background 0.18s ease;
 }
-.channel:hover .channel-play,
-.channel:focus-visible .channel-play { opacity: 1; transform: none; }
+.channel:hover .channel-play { transform: scale(1.05); }
 .channel.is-empty { opacity: 0.7; }
 .channel.is-empty .channel-live { color: var(--muted-2); }
 .channel.is-empty .channel-live i { background: var(--muted-2); box-shadow: none; }
@@ -3356,14 +3357,15 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
 .empty-state .pill { margin-top: 14px; }
 
 @media (hover: none) {
-  .channel-play { opacity: 1; transform: none; }
+  .channel-play { transform: none; }
 }
 
 @media (max-width: 820px) {
   .channels,
   .crates { margin-bottom: 34px; }
   .channel-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
-  .channel { min-height: 126px; padding: 13px 14px 44px; }
+  .channel { min-height: 176px; padding: 13px 14px; }
+  .channel-control { min-height: 60px; }
   .channel-name { font-size: 18px; }
   .crate-grid { gap: 12px; }
   .category-albums { padding: 4px 18px 22px; }
@@ -3393,6 +3395,90 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   box-shadow: 0 0 0 3px rgba(208, 82, 82, 0.16);
   animation: onair 1.9s ease-in-out infinite;
 }
+.mytuner-station { cursor: default; }
+.mytuner-station:hover { transform: translateY(-2px); }
+.mytuner-widget {
+  display: block;
+  width: 100%;
+  margin-top: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+}
+.mytuner-widget,
+.mytuner-widget * { box-sizing: border-box; }
+.mytuner-widget-bar {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  gap: 8px;
+  width: 100%;
+  min-height: 60px;
+  height: auto !important;
+  padding: 7px !important;
+  background: transparent !important;
+  line-height: normal !important;
+}
+.mytuner-widget .main-play-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  margin: 0;
+  padding: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: none;
+  cursor: pointer;
+}
+.mytuner-widget .main-play-button div {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  background: url("https://mytuner-radio.com/static/icons/widgets/BT_Play/BT_Play@2x.png") no-repeat center / 16px;
+}
+.mytuner-widget .main-play-button.playing div {
+  background-image: url("https://mytuner-radio.com/static/icons/widgets/BT_Pause/BT_Pause@2x.png");
+}
+.mytuner-widget .main-play-button.loading div {
+  background: url("https://static2.mytuner.mobi/static/images/sprite-loading.gif") no-repeat center / 28px;
+}
+.mytuner-widget .main-play-button.error div {
+  background: url("https://mytuner-radio.com/static/icons/widgets/BT_Error/erro@2x.png") no-repeat center / 16px;
+}
+.mytuner-widget .player-radio-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.mytuner-widget .volume-controls { display: none !important; }
+.mytuner-widget ul[hidden] { display: none !important; }
+.mytuner-station-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: auto;
+}
+.mytuner-station-footer > img {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 3px;
+  object-fit: cover;
+}
+.mytuner-station-footer .channel-name { margin-top: 0; }
+.mytuner-station-footer .channel-sub { display: block; }
 @keyframes onair {
   50% { opacity: 0.3; }
 }
