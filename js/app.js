@@ -353,7 +353,10 @@
   audio.addEventListener("timeupdate", () => {
     if (!hasAudio()) return;
     p.pos = audio.currentTime;
-    p.duration = audio.duration || currentTrack()?.duration || 0;
+    /* A live stream reports Infinity, which would print as NaN in the deck. */
+    p.duration = Number.isFinite(audio.duration)
+      ? audio.duration
+      : (currentTrack()?.duration || 0);
     updateProgress();
   });
   audio.addEventListener("ended", () => next(true));
@@ -984,6 +987,56 @@
     </button>`;
   }
 
+  /* ── Live stations ─────────────────────────────────────────── */
+  /* A live station is someone else's broadcast, so the list ships empty and
+     lives in js/live-radio.js: only stations you are allowed to stream belong
+     there. Each entry is either a direct stream URL or a station's own 24/7
+     live video on YouTube. */
+  function liveStations() {
+    return (window.AURUM_LIVE_STATIONS || []).filter((s) => s && s.name && (s.stream || s.youtube));
+  }
+
+  function liveStationTrack(station) {
+    const common = {
+      id: `live:${station.id || station.name}`,
+      title: station.name,
+      artist: station.frequency ? `${station.frequency} FM · live` : "Live radio",
+      album: "Live radio",
+      duration: 0,
+      live: true,
+      genre: ""
+    };
+    if (station.youtube) {
+      return {
+        ...common,
+        yt: true,
+        videoId: station.youtube,
+        embed: `https://www.youtube-nocookie.com/embed/${station.youtube}`,
+        url: `https://www.youtube.com/watch?v=${station.youtube}`
+      };
+    }
+    return { ...common, yt: false, src: station.stream };
+  }
+
+  function playLiveStation(id) {
+    const station = liveStations().find((s) => String(s.id) === String(id));
+    if (!station) return;
+    setQueue([liveStationTrack(station)], 0, `live:${station.id}`);
+    play();
+  }
+
+  function liveTile(station) {
+    return `<button class="channel live-station" type="button" style="--c1:${station.c1 || "#6a5a3c"}" data-action="play-live" data-live="${esc(station.id || station.name)}" aria-label="Play ${esc(station.name)} live">
+      <span class="channel-top">
+        <span class="channel-live" aria-hidden="true"><i></i>On air</span>
+        <span class="channel-count">${esc(station.frequency ? `${station.frequency} FM` : "")}</span>
+      </span>
+      <span class="channel-name">${esc(station.name)}</span>
+      <span class="channel-sub">${esc(station.city || station.blurb || "Live radio")}</span>
+      <span class="channel-play" aria-hidden="true">${icon("play", "sm")}</span>
+    </button>`;
+  }
+
   function crateCard(name) {
     const meta = categoryMeta(name);
     if (!meta) return "";
@@ -1117,6 +1170,19 @@
        disappearing until the first song is filed. */
     const leadNames = new Set(window.AURUM_LEAD_CATEGORIES || []);
     const stations = radioStations().filter((s) => s.id === "all" || leadNames.has(s.category));
+    /* Live stations come first when they are configured: they are the only
+       thing on this page that is happening right now. */
+    const live = liveStations();
+    const liveRow = live.length
+      ? `<section class="channels live-radio">
+      <div class="section-head">
+        <h2>Live radio</h2>
+        <span class="section-note">On air now · the station's own broadcast</span>
+      </div>
+      <div class="channel-grid">${live.map(liveTile).join("")}</div>
+    </section>`
+      : "";
+
     const channels = stations.length > 1
       ? `<section class="channels">
       <div class="section-head">
@@ -1154,6 +1220,7 @@
 
     return `<div class="home editorial">
       ${hero}
+      ${liveRow}
       ${channels}
       ${crates}
       ${chart}
@@ -2653,6 +2720,12 @@
         const name = el.dataset.name;
         if (currentContext() === `genre:${name}`) togglePlay();
         else playGenre(name);
+        break;
+      }
+      case "play-live": {
+        const station = el.dataset.live;
+        if (currentContext() === `live:${station}`) togglePlay();
+        else playLiveStation(station);
         break;
       }
       case "play-radio": {

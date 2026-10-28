@@ -3382,3 +3382,20 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   .crate-name { font-size: 15px; }
   .category-albums { padding: 4px 16px 18px; }
 }
+
+/* Live stations get the one red mark in the room: on air, as opposed to a
+   shuffled queue that is merely ready. */
+.channel.live-station .channel-live { color: #e3b4b4; }
+.channel.live-station .channel-live i {
+  width: 7px;
+  height: 7px;
+  background: #d05252;
+  box-shadow: 0 0 0 3px rgba(208, 82, 82, 0.16);
+  animation: onair 1.9s ease-in-out infinite;
+}
+@keyframes onair {
+  50% { opacity: 0.3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .channel.live-station .channel-live i { animation: none; }
+}
