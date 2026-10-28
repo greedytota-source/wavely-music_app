@@ -67,6 +67,10 @@ async function loadSupabaseData() {
         artist_image: (credits.length ? credits[0].image_url : t.artists?.image_url) || null,
         album: t.albums?.title || '',
         album_id: t.album_id,
+        // Category chosen in the admin panel (supabase/track-genre.sql).
+        // Older projects have no column yet, so this stays empty rather
+        // than failing the whole load.
+        genre: t.genre || '',
         description: t.description || '',
         duration: t.duration || 0,
         src: videoId ? null : t.file_url,

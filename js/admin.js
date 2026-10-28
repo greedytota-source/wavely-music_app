@@ -5,6 +5,24 @@ let artistsCache = [];
 const selectedArtists = new Set();
 const selectedYtArtists = new Set();
 
+/* ── Categories ───────────────────────────────────────────────── */
+/* The list lives in js/categories.js so the admin panel and the player can
+   never disagree about what a category is called. */
+function categoryOptions(selected, placeholder) {
+  const list = window.AURUM_CATEGORIES || [];
+  const current = window.resolveCategoryName ? window.resolveCategoryName(selected) : selected;
+  const head = placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '';
+  return (
+    head +
+    list
+      .map(
+        (c) =>
+          `<option value="${escapeHtml(c.name)}"${current === c.name ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
+      )
+      .join('')
+  );
+}
+
 /* Both admin forms (upload + YouTube) share the artist data but keep their
    own selection. Each entry describes one picker's DOM ids. */
 const ARTIST_PICKERS = [
@@ -242,6 +260,9 @@ function renderTracks(tracks, filter = currentTrackFilter()) {
           <span>${escapeHtml(artist)}</span>
         </div>
         <span class="track-album">${escapeHtml(album)}</span>
+        <select class="select-mini track-genre" data-genre-for="${id}" aria-label="Category for ${escapeHtml(title)}">
+          ${categoryOptions(t.genre || '', 'No category')}
+        </select>
         ${chip}
         <div class="track-actions">
           <button class="btn-small btn-ghost" data-action="edit-desc" data-id="${id}" title="Edit description" aria-label="Edit description for ${escapeHtml(title)}">✎</button>
@@ -431,6 +452,9 @@ function initYouTubeForm() {
   const hint = document.getElementById('ytHint');
   if (!urlEl || !titleEl || !artistEl || !durationEl || !submitBtn) return;
 
+  const genreEl = document.getElementById('ytGenre');
+  if (genreEl) genreEl.innerHTML = categoryOptions('', 'No category');
+
   const status = (message, type) => {
     const el = document.getElementById('ytStatus');
     if (!el) return;
@@ -554,6 +578,10 @@ function initYouTubeForm() {
       }
       if (!artistIds.length) throw new Error('Kam se kam ek artist chahiye');
 
+      const genreName = window.resolveCategoryName
+        ? window.resolveCategoryName(genreEl ? genreEl.value : '')
+        : (genreEl && genreEl.value) || null;
+
       const primaryArtistId = artistIds[0];
       status('Creating/finding album...', 'success');
       const albumId = await getOrCreateAlbum(albumName, primaryArtistId);
@@ -566,10 +594,12 @@ function initYouTubeForm() {
         file_url: watchUrl,
         cover_url: coverUrl,
         description: description || null,
+        genre: genreName,
         explicit: false
       };
 
       let descriptionSaved = true;
+      let genreSaved = true;
       let { data: track, error } = await window.supabaseClient
         .from('tracks')
         .insert([trackPayload])
@@ -586,11 +616,24 @@ function initYouTubeForm() {
           .select('id')
           .single());
       }
+      // Same treatment for the optional category column.
+      if (error && /genre/i.test(error.message) && /column|schema/i.test(error.message)) {
+        genreSaved = false;
+        delete trackPayload.genre;
+        ({ data: track, error } = await window.supabaseClient
+          .from('tracks')
+          .insert([trackPayload])
+          .select('id')
+          .single());
+      }
       if (error) throw error;
 
       let linkWarning = '';
       if (!descriptionSaved) {
         linkWarning += ' Description save nahi hua — Supabase me supabase/song-details.sql run karo.';
+      }
+      if (!genreSaved) {
+        linkWarning += ' Category save nahi hui — Supabase me supabase/track-genre.sql run karo.';
       }
       if (artistIds.length > 1) {
         const rows = artistIds.map((artistId, index) => ({
@@ -1007,6 +1050,36 @@ function initAdmin() {
     }
   });
 
+  // Per-song category: saves on change, so songs that were added before the
+  // category column existed can still be filed without being re-added.
+  document.addEventListener('change', (event) => {
+    const select = event.target.closest('[data-genre-for]');
+    if (!select) return;
+    const id = select.dataset.genreFor;
+    const value = select.value || null;
+    (async () => {
+      try {
+        const { error } = await window.supabaseClient
+          .from('tracks')
+          .update({ genre: value })
+          .eq('id', id);
+        if (error) throw error;
+        const cached = trackCache.find((t) => String(t.id) === String(id));
+        if (cached) cached.genre = value || '';
+        showTrackStatus(value ? `Category → ${value}` : 'Category hata di', 'success');
+      } catch (err) {
+        console.error('Track category error:', err);
+        const missingColumn = /genre/i.test(String(err.message)) && /column|schema/i.test(String(err.message));
+        showTrackStatus(
+          missingColumn
+            ? 'Category column nahi hai — Supabase me supabase/track-genre.sql run karo.'
+            : 'Error: ' + catalogueError(err),
+          'error'
+        );
+      }
+    })();
+  });
+
   uploadForm.onsubmit = null;
   uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1261,8 +1334,19 @@ async function initAuthGate() {
 
 initPageNav();
 
+/* The category picker is plain markup with no data behind it, so it is filled
+   immediately — the sign-in gate only decides whether the form can be used. */
+function fillCategorySelects() {
+  const select = document.getElementById('ytGenre');
+  if (select) select.innerHTML = categoryOptions('', 'No category');
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAuthGate);
+  document.addEventListener('DOMContentLoaded', () => {
+    fillCategorySelects();
+    initAuthGate();
+  });
 } else {
+  fillCategorySelects();
   initAuthGate();
 }

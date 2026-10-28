@@ -632,6 +632,17 @@
       i = p.index + 1;
     }
 
+    /* A radio station never runs dry: when the shuffled queue ends, draw a new
+       hand from the same crate and keep going. */
+    if (i >= p.queue.length && auto && radioContextStation()) {
+      const fresh = radioTracks(radioContextStation());
+      if (fresh.length) {
+        setQueue(fresh, 0, `radio:${radioContextStation()}`);
+        play();
+        return;
+      }
+    }
+
     if (i >= p.queue.length) {
       if (p.repeat === 1 || !auto) {
         i = 0;
@@ -867,6 +878,128 @@
     return album ? album.id : null;
   }
 
+  /* ── Categories and radio ──────────────────────────────────── */
+  /* A song's category lives in `tracks.genre` (supabase/track-genre.sql).
+     Matching is by name and case-insensitive, so "bollywood" typed by hand and
+     "Bollywood" chosen in the admin panel land in the same crate. The demo
+     catalogue in js/data.js has no genre column, so its hand-written
+     GENRE_TRACKS map is still honoured as a fallback. */
+  const byIdList = (ids) =>
+    window.byIds
+      ? window.byIds(ids)
+      : (ids || []).map((id) => (window.TRACK_BY_ID || {})[id]).filter(Boolean);
+
+  function categoryMeta(name) {
+    const key = String(name || "").trim().toLowerCase();
+    if (!key) return null;
+    const byName = window.AURUM_CATEGORY_BY_NAME || {};
+    const direct = Object.keys(byName).find((k) => k.toLowerCase() === key);
+    if (direct) return byName[direct];
+    const legacy = Object.keys(window.GENRE_BY_NAME || {}).find((k) => k.toLowerCase() === key);
+    if (legacy) {
+      const g = window.GENRE_BY_NAME[legacy];
+      return { name: g.name, c1: g.c1, seed: g.seed, blurb: "", radio: `${g.name} Radio` };
+    }
+    // A category typed into the admin panel that is not in the shared list yet:
+    // keep working, just without a colour of its own.
+    return { name: String(name).trim(), c1: "#6a5a3c", seed: `genre:${key}`, blurb: "", radio: `${String(name).trim()} Radio` };
+  }
+
+  function tracksInCategory(name) {
+    const meta = categoryMeta(name);
+    if (!meta) return [];
+    const key = meta.name.toLowerCase();
+    const tagged = (window.TRACKS || []).filter(
+      (t) => String(t.genre || "").trim().toLowerCase() === key
+    );
+    if (tagged.length) return tagged;
+    return byIdList((window.GENRE_TRACKS || {})[meta.name] || []);
+  }
+
+  function categoryAlbums(name) {
+    const ids = new Set(tracksInCategory(name).map((t) => t.album_id).filter(Boolean));
+    if (!ids.size) return [];
+    return (window.ALBUMS || []).filter((a) => ids.has(a.id));
+  }
+
+  function shuffled(list) {
+    const a = (list || []).slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  /* A station is a shuffled queue, not a stream: every song here plays from
+     YouTube, so "radio" means keep handing the queue new songs from the same
+     crate instead of stopping at the end. Aurum Radio is the whole room. */
+  function radioStations() {
+    const lead = new Set(window.AURUM_LEAD_CATEGORIES || []);
+    const cats = (window.AURUM_CATEGORIES || []).slice();
+    const ordered = cats.filter((c) => lead.has(c.name)).concat(cats.filter((c) => !lead.has(c.name)));
+    return [
+      { id: "all", name: "Aurum Radio", blurb: "Everything in the room, shuffled.", c1: "#6a5a3c" }
+    ].concat(
+      ordered.map((c) => ({ id: c.slug, name: c.radio || `${c.name} Radio`, blurb: c.blurb, c1: c.c1, category: c.name }))
+    );
+  }
+
+  function radioTracks(stationId) {
+    if (!stationId || stationId === "all") return shuffled(window.TRACKS || []);
+    const meta = (window.AURUM_CATEGORY_BY_SLUG || {})[stationId];
+    return shuffled(tracksInCategory(meta ? meta.name : stationId));
+  }
+
+  function radioStationCount(station) {
+    if (station.id === "all") return (window.TRACKS || []).length;
+    return tracksInCategory(station.category).length;
+  }
+
+  function playRadio(stationId, label) {
+    const tracks = radioTracks(stationId);
+    if (!tracks.length) {
+      toast(`${label || "This channel"} is empty — Admin → YouTube song add karte waqt category chuno.`);
+      return;
+    }
+    setQueue(tracks, 0, `radio:${stationId}`);
+    play();
+  }
+
+  function radioContextStation() {
+    const ctx = currentContext();
+    return ctx && String(ctx).startsWith("radio:") ? String(ctx).slice(6) : null;
+  }
+
+  function stationTile(station) {
+    const count = radioStationCount(station);
+    return `<button class="channel ${count ? "" : "is-empty"}" type="button" style="--c1:${station.c1}" data-action="play-radio" data-radio="${esc(station.id)}" data-label="${esc(station.name)}" aria-label="Play ${esc(station.name)}">
+      <span class="channel-top">
+        <span class="channel-live" aria-hidden="true"><i></i>Live</span>
+        <span class="channel-count">${count ? plural(count, "song") : "Empty"}</span>
+      </span>
+      <span class="channel-name">${esc(station.name)}</span>
+      <span class="channel-sub">${esc(station.blurb || "")}</span>
+      <span class="channel-play" aria-hidden="true">${icon("play", "sm")}</span>
+    </button>`;
+  }
+
+  function crateCard(name) {
+    const meta = categoryMeta(name);
+    if (!meta) return "";
+    const tracks = tracksInCategory(meta.name);
+    const albums = categoryAlbums(meta.name);
+    const art = albums.slice(0, 3).map((a) => `<img src="${itemArt(a)}" alt="" loading="lazy" />`).join("");
+    const count = tracks.length
+      ? `${plural(tracks.length, "song")}${albums.length ? ` · ${plural(albums.length, "album")}` : ""}`
+      : "No songs yet";
+    return `<button class="crate-card" type="button" style="--c1:${meta.c1}" data-nav="/genre/${encodeURIComponent(meta.name)}" aria-label="Open the ${esc(meta.name)} crate">
+      <span class="crate-art">${art || `<span class="crate-monogram">${esc(meta.name.charAt(0))}</span>`}</span>
+      <span class="crate-name">${esc(meta.name)}</span>
+      <span class="crate-sub">${esc(count)}</span>
+    </button>`;
+  }
+
   function trackTable(item) {
     const rows = item.tracks.map((t, i) => trackRow(t, i, item.id)).join("");
     return `<div class="tracks">
@@ -979,6 +1112,35 @@
     </section>`
       : "";
 
+    /* Channels: Aurum Radio plus one station per lead category. A station with
+       no songs still renders, so the row shows what the room is for instead of
+       disappearing until the first song is filed. */
+    const leadNames = new Set(window.AURUM_LEAD_CATEGORIES || []);
+    const stations = radioStations().filter((s) => s.id === "all" || leadNames.has(s.category));
+    const channels = stations.length > 1
+      ? `<section class="channels">
+      <div class="section-head">
+        <h2>Channels</h2>
+        <span class="section-note">Always on · a shuffled queue from the crate</span>
+      </div>
+      <div class="channel-grid">${stations.map(stationTile).join("")}</div>
+    </section>`
+      : "";
+
+    const crateNames = (window.AURUM_LEAD_CATEGORIES && window.AURUM_LEAD_CATEGORIES.length)
+      ? window.AURUM_LEAD_CATEGORIES
+      : (window.AURUM_CATEGORIES || []).slice(0, 4).map((c) => c.name);
+    const crateCards = crateNames.map(crateCard).join("");
+    const crates = crateCards
+      ? `<section class="crates">
+      <div class="section-head">
+        <h2>Crates</h2>
+        <span class="section-note">Filed by category · open a crate for its albums</span>
+      </div>
+      <div class="crate-grid">${crateCards}</div>
+    </section>`
+      : "";
+
     const artistCards = (window.ARTISTS || []).slice(0, 12).map((artist) => card(artist)).join("");
     const strip = artistCards
       ? `<section class="filmstrip">
@@ -992,6 +1154,8 @@
 
     return `<div class="home editorial">
       ${hero}
+      ${channels}
+      ${crates}
       ${chart}
       ${mosaic}
       ${strip}
@@ -1087,49 +1251,66 @@
     ${discography}`;
   }
 
+  /* A category page: the crate itself. Everything here follows from
+     `tracks.genre`, so it fills up as soon as songs are filed in the admin
+     panel — and says so plainly while it is still empty. */
   function viewGenre(name) {
-    const genre = (window.GENRE_BY_NAME||{})[name];
-    if (!genre) return viewNotFound();
+    const meta = categoryMeta(name);
+    if (!meta) return viewNotFound();
 
-    const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
+    const tracks = tracksInCategory(meta.name);
+    const albums = categoryAlbums(meta.name);
     const totalSec = tracks.reduce((sum, t) => sum + t.duration, 0);
     const item = {
-      id: `genre:${name}`,
-      type: "Genre",
-      title: name,
+      id: `genre:${meta.name}`,
+      type: "Category",
+      title: meta.name,
       owner: "Aurum",
-      seed: genre.seed,
-      description: `The best of ${name}, all in one place.`,
+      seed: meta.seed,
+      description: meta.blurb || `Everything filed under ${meta.name}.`,
       tracks
     };
 
     const body = tracks.length
       ? trackTable(item)
       : `<div class="tracks"><div class="empty-state">
-          <h3>Nothing here yet</h3>
-          <p>This genre doesn't have any tracks in the demo catalogue.</p>
+          <h3>The ${esc(meta.name)} crate is empty</h3>
+          <p>Admin panel → YouTube song add karte waqt category <strong>${esc(meta.name)}</strong> chuno.
+          Song add hote hi yahan albums, radio aur count apne aap bhar jayenge.</p>
+          <a class="pill pill-light" href="admin.html">Open the admin panel</a>
         </div></div>`;
 
-    return `<div class="pl-hero" style="--tint:${tintFor(genre.seed)}">
+    const albumSection = albums.length
+      ? `<section class="category-albums">
+      <div class="section-head">
+        <h2>Albums in ${esc(meta.name)}</h2>
+        <span class="section-note">${plural(albums.length, "album")}</span>
+      </div>
+      <div class="card-grid">${albums.map((a) => card(a)).join("")}</div>
+    </section>`
+      : "";
+
+    return `<div class="pl-hero" style="--tint:${tintFor(meta.seed)}">
       <div class="pl-header">
-        <img class="pl-cover" src="${itemArt(item)}" alt="${esc(name)} cover" />
+        <img class="pl-cover" src="${itemArt(item)}" alt="${esc(meta.name)} cover" />
         <div class="pl-info">
-          <span class="pl-eyebrow">Genre</span>
-          <h1 class="pl-title">${esc(name)}</h1>
+          <span class="pl-eyebrow">Category</span>
+          <h1 class="pl-title">${esc(meta.name)}</h1>
           <p class="pl-desc">${esc(item.description)}</p>
           <div class="pl-meta">
             <span class="avatar-xs">A</span><strong>Aurum</strong>
-            <span class="dot">•</span><span>${plural(tracks.length, "song")},</span>
+            <span class="dot">•</span><span>${plural(tracks.length, "song")}${albums.length ? `, ${plural(albums.length, "album")}` : ""},</span>
             <span class="total">${fmtLong(totalSec)}</span>
           </div>
         </div>
       </div>
     </div>
     <div class="pl-actions">
-      <button class="big-play" type="button" data-action="play-genre" data-name="${esc(name)}" data-label="${esc(name)}" aria-label="Play ${esc(name)}">${icon("play")}</button>
+      <button class="big-play" type="button" data-action="play-genre" data-name="${esc(meta.name)}" data-label="${esc(meta.name)}" aria-label="Play ${esc(meta.name)}">${icon("play")}</button>
+      <button class="pill pill-text" type="button" data-action="play-radio" data-radio="${esc(meta.name)}" data-label="${esc(meta.name)} Radio">${icon("shuffle", "sm")} Start ${esc(meta.name)} Radio</button>
       <button class="icon-btn plain" type="button" data-action="toast" data-msg="Added to Your Library" aria-label="Save to Your Library" title="Save to Your Library">${icon("heart")}</button>
-      <button class="icon-btn plain" type="button" data-action="toast" data-msg="More options aren't part of this demo" aria-label="More options" title="More options">${icon("more")}</button>
     </div>
+    ${albumSection}
     ${body}`;
   }
 
@@ -2187,8 +2368,7 @@
     }
     if (contextId.startsWith("genre:")) {
       const name = contextId.slice("genre:".length);
-      const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
-      setQueue(tracks, index, contextId);
+      setQueue(tracksInCategory(name), index, contextId);
       play();
       return;
     }
@@ -2214,9 +2394,10 @@
   }
 
   function playGenre(name) {
-    const tracks = (window.byIds || ((ids)=>(ids||[]).map(id=>(window.TRACK_BY_ID||{})[id]).filter(Boolean)))((window.GENRE_TRACKS||{})[name] || []);
+    const meta = categoryMeta(name);
+    const tracks = tracksInCategory(meta ? meta.name : name);
     if (!tracks.length) return;
-    setQueue(tracks, 0, `genre:${name}`);
+    setQueue(tracks, 0, `genre:${meta ? meta.name : name}`);
     play();
   }
 
@@ -2472,6 +2653,12 @@
         const name = el.dataset.name;
         if (currentContext() === `genre:${name}`) togglePlay();
         else playGenre(name);
+        break;
+      }
+      case "play-radio": {
+        const station = el.dataset.radio;
+        if (currentContext() === `radio:${station}`) togglePlay();
+        else playRadio(station, el.dataset.label);
         break;
       }
       case "like":

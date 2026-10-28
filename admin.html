@@ -473,10 +473,21 @@
 
     .list-head, .track-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 170px 104px 92px;
-      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) 150px 142px 96px 92px;
+      gap: 14px;
       align-items: center;
     }
+    .select-mini {
+      height: 32px;
+      padding: 0 8px;
+      border-radius: 7px;
+      border: 1px solid #262626;
+      background: #141414;
+      color: var(--text);
+      font-size: 12.5px;
+      max-width: 100%;
+    }
+    .select-mini:focus { border-color: var(--accent, #bda57c); outline: none; }
     .list-head {
       padding: 0 12px 10px;
       border-bottom: 1px solid var(--line);
@@ -574,6 +585,7 @@
       .list-head { display: none; }
       .track-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 10px; }
       .track-album { grid-column: 1 / -1; }
+      .track-genre { grid-column: 1 / -1; justify-self: start; }
       .toolbar { grid-template-columns: minmax(0, 1fr); }
     }
 
@@ -785,6 +797,12 @@
                 </div>
               </div>
 
+              <label for="ytGenre">Category</label>
+              <select id="ytGenre">
+                <option value="">No category</option>
+              </select>
+              <p class="hint">Bollywood, Bhojpuri, Punjabi, Haryanvi… Home page ke crates, radio channels aur /genre pages isi se bante hain. Baad me Admin → Songs se bhi badal sakte ho.</p>
+
               <label for="ytCover">Cover image URL (optional)</label>
               <input type="url" id="ytCover" placeholder="https://...">
 
@@ -872,6 +890,7 @@
             <div class="list-head" aria-hidden="true">
               <span>Song</span>
               <span>Album</span>
+              <span>Category</span>
               <span>Source</span>
               <span style="text-align:right">Actions</span>
             </div>
@@ -887,6 +906,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/categories.js"></script>
   <script src="js/admin-config.js"></script>
   <script src="js/admin.js"></script>
 </body>
