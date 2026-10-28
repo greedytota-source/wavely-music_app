@@ -2367,9 +2367,20 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   --sleeve-w: 326px;
   --deck-h: 92px;
   --masthead-h: 60px;
-  --foil: linear-gradient(135deg, #f7e6b6 0%, #d9b26a 46%, #b0893f 100%);
-  --foil-line: rgba(217, 178, 106, 0.28);
-  --lacquer: radial-gradient(120% 90% at 12% -10%, rgba(217, 178, 106, 0.1), transparent 55%), #0b0b0d;
+  --nav-h: 56px;
+
+  /* Metal, quietened. The old #d9b26a at full saturation on every button and
+     cover read as loud rather than expensive. These are brass and champagne
+     tones at low saturation, and the foil is only ever used for a 1px rule or
+     a small mark — filled primary controls are ivory (--accent). */
+  --gold: #bda57c;
+  --gold-bright: #e8dcc6;
+  --gold-dim: #7c6c51;
+  --accent: #f2ebdf;
+  --accent-ink: #14130f;
+  --foil: linear-gradient(135deg, #efe4d0 0%, #ccb693 48%, #a68f68 100%);
+  --foil-line: rgba(206, 186, 152, 0.22);
+  --lacquer: radial-gradient(120% 90% at 12% -10%, rgba(206, 186, 152, 0.07), transparent 55%), #0b0b0d;
 }
 
 /* ── The room ─────────────────────────────────────────────── */
@@ -2386,7 +2397,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   inset: 0;
   z-index: 95;
   pointer-events: none;
-  opacity: 0.05;
+  opacity: 0.025;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -2410,7 +2421,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
 .topbar {
   border-radius: 0;
   border-bottom: 1px solid var(--foil-line);
-  background: linear-gradient(180deg, rgba(217, 178, 106, 0.06), transparent);
+  background: linear-gradient(180deg, rgba(206, 186, 152, 0.03), transparent);
   padding: 8px 12px;
 }
 .brand-name { font-size: 22px; letter-spacing: 0.01em; }
@@ -2424,13 +2435,15 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   background: rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 0 0 1px var(--gold), 0 0 0 4px rgba(217, 178, 106, 0.12);
 }
+/* The primary control is ivory, not gold. A gold-filled button in the top bar
+   was the loudest thing on the screen and made the whole room feel gilded. */
 .pill-light {
-  background: var(--foil);
-  color: #0a0a0b;
-  font-weight: 800;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
-.pill-light:hover { background: var(--foil); filter: brightness(1.08); }
-.avatar { background: var(--foil); color: #0a0a0b; }
+.pill-light:hover { background: #fff; filter: none; }
+.avatar { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 
 /* ── Spine: navigation set like a book spine ──────────────── */
 .spine {
@@ -2442,9 +2455,9 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--foil-line);
-  border-left: 2px solid rgba(217, 178, 106, 0.45);
+  border-left: 2px solid rgba(206, 186, 152, 0.3);
   border-radius: 3px 14px 14px 3px;
-  background: linear-gradient(180deg, rgba(217, 178, 106, 0.09), transparent 190px), var(--panel);
+  background: linear-gradient(180deg, rgba(206, 186, 152, 0.045), transparent 190px), var(--panel);
   box-shadow: inset -10px 0 22px rgba(0, 0, 0, 0.5);
 }
 .spine-cap,
@@ -2455,10 +2468,10 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   text-orientation: mixed;
   font-family: var(--font-display);
   text-transform: uppercase;
-  color: rgba(217, 178, 106, 0.55);
+  color: rgba(206, 186, 152, 0.4);
 }
 .spine-cap { font-size: 10px; letter-spacing: 0.3em; padding-bottom: 4px; }
-.spine-tail { font-size: 9px; letter-spacing: 0.22em; color: rgba(217, 178, 106, 0.32); padding-top: 4px; }
+.spine-tail { font-size: 9px; letter-spacing: 0.22em; color: rgba(206, 186, 152, 0.24); padding-top: 4px; }
 
 .spine .nav-link {
   display: flex;
@@ -2489,7 +2502,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
 .spine .nav-link.active {
   color: var(--gold-bright);
   border-left-color: var(--gold);
-  background: linear-gradient(90deg, rgba(217, 178, 106, 0.16), transparent 70%);
+  background: linear-gradient(90deg, rgba(206, 186, 152, 0.1), transparent 70%);
 }
 
 /* ── The Crate: the library, filed like sleeves ───────────── */
@@ -2567,7 +2580,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
 /* ── Deck: the player ─────────────────────────────────────── */
 .deck {
   border-top: 1px solid var(--foil-line);
-  background: linear-gradient(180deg, rgba(217, 178, 106, 0.05), transparent);
+  background: linear-gradient(180deg, rgba(206, 186, 152, 0.022), transparent);
 }
 .deck .player-left { padding-left: 6px; }
 .deck .bar-art { border-radius: 3px; box-shadow: 0 0 0 1px var(--foil-line); }
@@ -2576,7 +2589,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
 .deck .play-btn {
   width: 44px;
   height: 44px;
-  box-shadow: 0 0 0 1px rgba(217, 178, 106, 0.5), 0 10px 24px rgba(217, 178, 106, 0.16);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 .deck .play-btn .icon { width: 20px; height: 20px; }
 .deck .progress-row { gap: 14px; }
@@ -2585,7 +2598,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   height: 6px;
   border-radius: 3px;
   background-color: rgba(255, 255, 255, 0.08);
-  background-image: repeating-linear-gradient(90deg, rgba(217, 178, 106, 0.22) 0 1px, transparent 1px 12px);
+  background-image: repeating-linear-gradient(90deg, rgba(206, 186, 152, 0.14) 0 1px, transparent 1px 12px);
 }
 .deck .progress-row .bar-fill,
 .deck .progress-row .bar:hover .bar-fill {
@@ -2603,7 +2616,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   background: transparent;
 }
 .card:hover {
-  background: rgba(217, 178, 106, 0.05);
+  background: rgba(206, 186, 152, 0.035);
   border-color: var(--foil-line);
 }
 .card-img {
@@ -2632,7 +2645,7 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--foil-line);
 }
-.quick-tile:hover { background: rgba(217, 178, 106, 0.07); }
+.quick-tile:hover { background: rgba(206, 186, 152, 0.05); }
 
 /* ═══════════════════════════════════════════════════════════════
    Editorial home — a front page instead of a wall of shelves
@@ -2718,12 +2731,12 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.chart-row:hover { background: rgba(217, 178, 106, 0.06); }
+.chart-row:hover { background: rgba(206, 186, 152, 0.045); }
 .chart-row:focus-visible { outline-offset: -2px; }
 .chart-rank {
   font-family: var(--font-display);
   font-size: 24px;
-  color: rgba(217, 178, 106, 0.5);
+  color: rgba(206, 186, 152, 0.4);
   font-variant-numeric: tabular-nums;
 }
 .chart-row:hover .chart-rank { color: var(--gold-bright); }
@@ -2868,4 +2881,271 @@ body.video-on.video-paused .yt-center-cover { opacity: 1; }
 @media (max-width: 420px) {
   .hero-sleeve { grid-template-columns: minmax(0, 1fr); }
   .hero-art { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Refinement — a quieter metal, and a phone layout that works
+
+   Two problems this layer exists to fix:
+
+   1. Gold was carrying filled surfaces as well as hairlines — the login
+      pill, the avatar, every play button, an inner glow on the deck — so the
+      room read as loud instead of expensive. Filled primaries are ivory now,
+      and metal is back to 1px rules, small marks and active states.
+   2. The deck used to lay three columns side by side all the way down to
+      390px, so the track title collapsed to 0px while eight secondary
+      buttons kept their width (measured grid: "0px 114px 240px", .bar-title
+      0px wide). It is a two-row bar now — seek line across the top, then
+      cover, title, transport and an expand control — and the now-playing
+      panel finally opens on a phone instead of staying display:none.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Filled controls: ivory, not gold ──────────────────────── */
+.play-btn,
+.play-fab,
+.big-play {
+  background: var(--accent);
+  background-image: none;
+  color: var(--accent-ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.play-btn:hover,
+.play-fab:hover,
+.big-play:hover {
+  background: #fff;
+  filter: none;
+}
+
+/* The sweep stays a hairline — it was catching the eye before the cover did. */
+.card::before { opacity: 0.65; }
+
+/* ── Tablets and phones: one column, two-row deck ──────────── */
+@media (max-width: 820px) {
+  :root {
+    --masthead-h: 56px;
+    --deck-h: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app { grid-template-rows: var(--masthead-h) minmax(0, 1fr) var(--deck-h); }
+
+  /* Masthead — search keeps the room; secondary chrome gives its width up. */
+  .topbar { padding: 7px 12px; gap: 10px; }
+  .brand-name,
+  .history { display: none; }
+  .brand-mark { width: 30px; height: 30px; }
+  /* flex-basis has to be 0, not auto: an input's intrinsic width is its size
+     attribute (~20 characters), which pushed the masthead 31px past a 320px
+     screen and clipped the login pill. */
+  .search { flex: 1 1 0%; min-width: 0; width: auto; max-width: none; height: 42px; }
+  .search:focus-within { width: auto; }
+  .search-input { font-size: 16px; }   /* under 16px iOS zooms the page on focus */
+  .topbar-actions { gap: 6px; }
+  .topbar-actions .pill-text:not(.admin-pill),
+  .topbar-actions .icon-btn { display: none; }
+  .topbar-actions .admin-pill {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .topbar-actions .admin-pill span { display: none; }
+  .topbar-actions .pill-light { height: 40px; padding: 0 14px; }
+  .avatar { width: 40px; height: 40px; }
+
+  /* Page */
+  .editorial { padding: 6px 18px 30px; }
+  .site-foot { margin: 18px 18px 0; padding: 16px 0 22px; gap: 4px 16px; }
+  .site-foot a { font-size: 12px; }
+
+  /* Deck. .player-center is dissolved so its controls and seek bar can take
+     part in the deck's own grid rather than stacking inside a middle column
+     that had 114px to work with. */
+  .player {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "prog prog prog"
+      "left ctrl more";
+    align-content: center;
+    row-gap: 2px;
+    column-gap: 8px;
+    padding: 3px 12px 0;
+  }
+  .player-center { display: contents; }
+  .progress-row { grid-area: prog; gap: 8px; }
+  .player-left { grid-area: left; gap: 10px; }
+  .controls { grid-area: ctrl; gap: 2px; }
+  .player-right { grid-area: more; gap: 0; }
+
+  .deck .progress-row .time { font-size: 10px; min-width: 28px; }
+  .deck .progress-row .bar {
+    height: 3px;
+    background-image: none;
+    background-color: rgba(255, 255, 255, 0.14);
+  }
+  .player .bar-art { width: 42px; height: 42px; border-radius: 5px; }
+  .deck .bar-title { font-size: 14px; line-height: 1.2; }
+  .deck .bar-artist { font-size: 11.5px; margin-top: 1px; }
+  .ctrl { min-width: 38px; min-height: 38px; padding: 0; }
+  .ctrl .icon { width: 22px; height: 22px; }
+  .deck .play-btn { width: 42px; height: 42px; }
+  .deck .play-btn .icon { width: 19px; height: 19px; }
+  .like-btn { width: 38px; height: 38px; }
+
+  /* Secondary deck controls live in the sheet; the bar keeps transport only. */
+  .volume,
+  #lyricsBtn,
+  #videoBtn,
+  #queueBtn,
+  #fullscreenBtn,
+  .player-right [data-action="toast"] { display: none; }
+  #npToggle { width: 38px; height: 38px; }
+  #npToggle.active { color: var(--gold-bright); background: rgba(255, 255, 255, 0.08); }
+
+  /* Front page */
+  .hero-sleeve { margin: 6px 0 30px; padding: 22px 20px; gap: 18px; border-radius: 14px; }
+  .hero-title { font-size: clamp(27px, 7.4vw, 38px); margin: 10px 0; }
+  .hero-sub { font-size: 13.5px; }
+  .hero-actions { margin-top: 18px; gap: 10px; }
+  .hero-actions .pill,
+  .hero-actions button { min-height: 44px; }
+  .hero-art { width: 116px; height: 116px; }
+
+  .section-head { margin-bottom: 14px; gap: 10px; }
+  .section-head h2 { font-size: 22px; }
+  .show-all { min-height: 40px; display: inline-flex; align-items: center; }
+  .chart { margin-bottom: 34px; }
+  .chart-row { grid-template-columns: 26px 42px minmax(0, 1fr); gap: 12px; padding: 8px 4px; }
+  .chart-row img { width: 42px; height: 42px; }
+  .chart-rank { font-size: 17px; }
+  .chart-title { font-size: 14.5px; }
+  .chart-artist { font-size: 12px; }
+
+  .mosaic { margin-bottom: 34px; }
+  .mosaic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .mosaic-grid .card:first-child { grid-column: auto; grid-row: auto; }
+  .card { padding: 8px; }
+  .card-img { margin-bottom: 9px; }
+  .card-title { font-size: 14px; line-height: 1.25; }
+  .card-sub { font-size: 11.5px; }
+  .strip { gap: 12px; padding-right: 22px; }
+  .strip .card { flex: 0 0 132px; }
+}
+
+/* Tablets keep video and queue in the bar — there is width for them there. */
+@media (min-width: 601px) and (max-width: 820px) {
+  #videoBtn,
+  #queueBtn { display: grid; }
+}
+
+/* Now playing as a sheet wherever the fourth column cannot exist. Below 1180
+   .sleeve used to be display:none even with np-open on the app, so the deck's
+   toggle was a button that did nothing; from 821-1180 the sheet keeps it live. */
+@media (max-width: 1180px) {
+  .sleeve,
+  .app.np-open .sleeve {
+    display: flex;
+    position: fixed;
+    z-index: 46;
+    inset: 0 0 var(--deck-h) 0;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--foil-line);
+    border-radius: 0;
+    background: var(--panel);
+    transform: translateY(100%);
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.32s;
+  }
+  .app.np-open .sleeve {
+    transform: none;
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .sleeve .np-top { padding: 14px 16px 10px; }
+  .sleeve .np-scroll { padding: 10px 18px 36px; }
+  .sleeve .np-cover { width: min(100%, 300px); margin: 0 auto 18px; }
+  .sleeve .np-head { gap: 12px; }
+  .sleeve .np-title { font-size: 22px; }
+
+  /* The queue has to sit above the sheet to be usable from it. */
+  .queue-drawer {
+    position: fixed;
+    top: 0;
+    bottom: var(--deck-h);
+    width: min(340px, 90%);
+    border-radius: 0;
+  }
+  .app.queue-open .queue-drawer { z-index: 48; }
+}
+
+/* The bottom nav is fixed over the page, so the last row of content needs the
+   room it occupies — before this, nothing did and the footer sat underneath it. */
+@media (max-width: 760px) {
+  .mobile-nav {
+    bottom: var(--deck-h);
+    height: var(--nav-h);
+    background: rgba(8, 8, 10, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+  }
+  .mobile-nav-item {
+    position: relative;
+    min-height: 48px;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    color: var(--muted-2);
+  }
+  .mobile-nav-item.active { color: var(--text); }
+  .mobile-nav-item.active .icon { color: var(--gold-bright); }
+  .mobile-nav-item.active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 20px;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--gold);
+    transform: translateX(-50%);
+  }
+  .main-scroll { padding-bottom: calc(var(--nav-h) + 14px); }
+  .toasts { bottom: calc(var(--deck-h) + var(--nav-h) + 14px); }
+}
+
+/* Small phones: shuffle, repeat and like move out of the bar before the
+   title does. The sheet still holds the full detail view. */
+@media (max-width: 600px) {
+  #shuffleBtn,
+  #repeatBtn,
+  .like-btn { display: none; }
+  .hero-art { display: none; }
+  .hero-sleeve { padding: 20px 18px; }
+  .chart-row { grid-template-columns: 24px 40px minmax(0, 1fr); gap: 10px; }
+  .chart-row img { width: 40px; height: 40px; }
+  .site-foot .foot-note { display: none; }
+}
+
+@media (max-width: 380px) {
+  .player { padding-left: 8px; padding-right: 8px; column-gap: 4px; }
+  .player-left { gap: 6px; }
+  .player .bar-art { width: 38px; height: 38px; }
+  .deck .bar-title { font-size: 13px; }
+  .card-title { font-size: 13px; }
+}
+
+/* Touch devices: give the thin controls a target that a finger can find. */
+@media (hover: none) {
+  .bar::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -12px;
+    bottom: -12px;
+  }
+  .site-foot a { padding: 8px 0; }
 }
